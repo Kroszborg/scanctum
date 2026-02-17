@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Scanctum VAPT Report</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.5cm;
+            @frame footer_frame {
+                -pdf-frame-content: footerContent;
+                bottom: 1cm;
+                margin-left: 1.5cm;
+                margin-right: 1.5cm;
+                height: 1cm;
+            }
+        }
+        
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 10pt;
+            color: #333333;
+            line-height: 1.5;
+        }
+
+        h1 { font-size: 24pt; color: #2c3e50; margin-bottom: 10pt; }
+        h2 { font-size: 16pt; color: #2980b9; border-bottom: 2px solid #2980b9; padding-bottom: 5px; margin-top: 20pt; }
+        h3 { font-size: 12pt; color: #2c3e50; margin-top: 15pt; margin-bottom: 5pt; font-weight: bold; }
+        h4 { font-size: 10pt; color: #7f8c8d; margin-top: 10pt; font-weight: bold; }
+
+        /* Cover Page */
+        .cover-page {
+            text-align: center;
+            padding-top: 150pt;
+            page-break-after: always;
+        }
+        .cover-title {
+            font-size: 36pt;
+            color: #2c3e50;
+            font-weight: bold;
+            margin-bottom: 20pt;
+        }
+        .cover-subtitle {
+            font-size: 18pt;
+            color: #7f8c8d;
+            margin-bottom: 50pt;
+        }
+        .cover-info {
+            font-size: 12pt;
+            margin-bottom: 10pt;
+            color: #34495e;
+        }
+        .cover-confidential {
+            margin-top: 100pt;
+            color: #c0392b;
+            font-weight: bold;
+            border: 2px solid #c0392b;
+            display: inline-block;
+            padding: 10pt 20pt;
+            text-transform: uppercase;
+        }
+
+        /* Tables (Layout and Data) */
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15pt; }
+        th, td { padding: 8pt; text-align: left; vertical-align: top; border-bottom: 1px solid #bdc3c7; }
+        th { background-color: #ecf0f1; color: #2c3e50; font-weight: bold; }
+        
+        /* Summary Cards Layout */
+        .summary-table td { text-align: center; border: none; padding: 10pt; }
+        .summary-box {
+            padding: 15pt;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+        }
+        .bg-critical { background-color: #c0392b; }
+        .bg-high { background-color: #e67e22; }
+        .bg-medium { background-color: #f1c40f; color: #333; }
+        .bg-low { background-color: #27ae60; }
+        .bg-info { background-color: #3498db; }
+
+        /* Finding Layout */
+        .finding-container {
+            border: 1px solid #bdc3c7;
+            padding: 10pt;
+            margin-bottom: 20pt;
+            background-color: #ffffff;
+            page-break-inside: avoid;
+        }
+        .finding-header {
+            background-color: #ecf0f1;
+            padding: 5pt 10pt;
+            border-bottom: 1px solid #bdc3c7;
+            margin: -10pt -10pt 10pt -10pt; /* Negative margin to fill container */
+        }
+        .severity-badge {
+            padding: 3pt 8pt;
+            color: white;
+            font-weight: bold;
+            border-radius: 3px;
+            font-size: 9pt;
+            text-transform: uppercase;
+        }
+        
+        .cvss-score { font-weight: bold; color: #2c3e50; }
+        .evidence-block {
+            background-color: #f8f9fa;
+            border: 1px solid #e1e4e8;
+            padding: 8pt;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 9pt;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin-top: 5pt;
+        }
+
+        /* Footer */
+        #footer { text-align: center; font-size: 8pt; color: #95a5a6; border-top: 1px solid #ecf0f1; padding-top: 5pt; }
+    </style>
+</head>
+<body>
+    <!-- Footer Content (displayed on every page via @frame) -->
+    <div id="footerContent">
+        Scanctum Security Report - Confidential - <pdf:pagenumber />
+    </div>
+
+    <!-- Cover Page -->
+    <div class="cover-page">
+        <div class="cover-title">SCANCTUM</div>
+        <div class="cover-subtitle">Vulnerability Assessment Report</div>
+        
+        <div class="cover-info">
+            <strong>Target:</strong> {{ scan.target_url }}
+        </div>
+        <div class="cover-info">
+            <strong>Date:</strong> {{ generated_at }}
+        </div>
+        <div class="cover-info">
+            <strong>Scan Mode:</strong> {{ scan.scan_mode | capitalize }}
+        </div>
+
+        <div class="cover-confidential">Confidential Document</div>
+    </div>
+    
+    <!-- Table of Contents / Executive Summary -->
+    <pdf:nextpage />
+    <h2>1. Executive Summary</h2>
+    <p>
+        This security assessment identified a total of <strong>{{ total_vulns }}</strong> vulnerabilities across 
+        <strong>{{ scan.pages_scanned }}</strong> scanned pages. The overall risk rating for this target is 
+        <strong style="color: #c0392b">{{ risk_level }}</strong>.
+    </p>
+
+    <h3>Risk Distribution</h3>
+    <table class="summary-table">
+        <tr>
+            <td>
+                <div class="summary-box bg-critical">
+                    <div style="font-size: 24pt">{{ severity_counts.critical }}</div>
+                    <div>Critical</div>
+                </div>
+            </td>
+            <td>
+                <div class="summary-box bg-high">
+                    <div style="font-size: 24pt">{{ severity_counts.high }}</div>
+                    <div>High</div>
+                </div>
+            </td>
+            <td>
+                <div class="summary-box bg-medium">
+                    <div style="font-size: 24pt">{{ severity_counts.medium }}</div>
+                    <div>Medium</div>
+                </div>
+            </td>
+            <td>
+                <div class="summary-box bg-low">
+                    <div style="font-size: 24pt">{{ severity_counts.low }}</div>
+                    <div>Low</div>
+                </div>
+            </td>
+            <td>
+                <div class="summary-box bg-info">
+                    <div style="font-size: 24pt">{{ severity_counts.info }}</div>
+                    <div>Info</div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- OWASP Summary -->
+    <h3>OWASP Top 10 Summary</h3>
+    <table>
+        <tr>
+            <th style="width: 20%">Category</th>
+            <th style="width: 60%">Description</th>
+            <th style="width: 20%">Findings</th>
+        </tr>
+        {% for cat, info in owasp_top_10.items() %}
+        {% if owasp_counts.get(cat, 0) > 0 %}
+        <tr>
+            <td><strong>{{ cat }}</strong></td>
+            <td>{{ info.name }}</td>
+            <td style="text-align: center">{{ owasp_counts.get(cat, 0) }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+        <!-- Show at least one row if empty -->
+        {% if not owasp_counts %}
+        <tr><td colspan="3" style="text-align: center; color: #7f8c8d;">No OWASP Top 10 vulnerabilities identified.</td></tr>
+        {% endif %}
+    </table>
+
+    <pdf:nextpage />
+
+    <!-- Detailed Findings -->
+    <h2>2. Detailed Findings</h2>
+    
+    {% for vuln in vulnerabilities %}
+    <div class="finding-container">
+        <div class="finding-header">
+            <table style="width: 100%; border: none; margin: 0;">
+                <tr>
+                    <td style="border: none; width: 70%; padding: 0;">
+                        <strong style="font-size: 12pt;">{{ vuln.vuln_type }}</strong>
+                    </td>
+                    <td style="border: none; width: 30%; text-align: right; padding: 0;">
+                        <span class="severity-badge bg-{{ vuln.severity }}">{{ vuln.severity }}</span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        
+        <table style="width: 100%;">
+            <tr>
+                <td style="width: 15%; font-weight: bold;">Location:</td>
+                <td style="width: 85%; font-family: monospace;">{{ vuln.affected_url }}</td>
+            </tr>
+            <tr>
+                <td style="font-weight: bold;">CVSS:</td>
+                <td><span class="cvss-score">{{ "%.1f" | format(vuln.cvss_score) }}</span> ({{ vuln.severity | capitalize }})</td>
+            </tr>
+            <tr>
+                <td style="font-weight: bold;">Category:</td>
+                <td>{{ vuln.owasp_category }} ({{ vuln.cwe_id }})</td>
+            </tr>
+        </table>
+
+        <h4>Description</h4>
+        <p>{{ vuln.description }}</p>
+
+        <h4>Evidence</h4>
+        {% if vuln.evidence %}
+            {% for ev in vuln.evidence %}
+            <div class="evidence-block">
+                <strong>{{ ev.title }}:</strong><br/>
+                {{ ev.content }}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="evidence-block">No specific evidence data available.</div>
+        {% endif %}
+
+        <h4>Remediation</h4>
+        <p>{{ vuln.remediation }}</p>
+    </div>
+    {% endfor %}
+
+    {% if not vulnerabilities %}
+    <div style="text-align: center; padding: 50pt; color: #27ae60;">
+        <h3>No vulnerabilities found. System appears secure.</h3>
+    </div>
+    {% endif %}
+
+    <pdf:nextpage />
+    
+    <!-- Disclaimer -->
+    <h2>3. Disclaimer</h2>
+    <div style="border: 1px solid #7f8c8d; padding: 10pt; font-size: 9pt; color: #7f8c8d; background-color: #ecf0f1;">
+        <p>This report was automatically generated by Scanctum. While every effort has been made to ensure accuracy, automated tools may produce false positives or miss complex vulnerabilities.</p>
+        <p>The information contained in this report is confidential and intended solely for the use of the individual or entity to whom it is addressed.</p>
+    </div>
+
+</body>
+</html>

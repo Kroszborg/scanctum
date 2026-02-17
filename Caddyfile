@@ -1,0 +1,24 @@
+{
+    # Global options
+    email admin@example.com
+}
+
+http://localhost {
+    # Frontend (Next.js)
+    reverse_proxy frontend:3000
+
+    # Backend API (FastAPI)
+    handle_path /api/v1/* {
+        rewrite * /api/v1{path}
+        reverse_proxy backend:8000
+    }
+}
+
+# Uncomment below for production domain
+# https://your-domain.com {
+#     reverse_proxy frontend:3000
+#     handle_path /api/v1/* {
+#         rewrite * /api/v1{path}
+#         reverse_proxy backend:8000
+#     }
+# }
