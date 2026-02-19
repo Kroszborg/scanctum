@@ -3,13 +3,25 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Scan, GitCompareArrows, Settings, Shield } from "lucide-react";
+import {
+  LayoutDashboard,
+  Scan,
+  GitCompareArrows,
+  Settings,
+  Shield,
+  ShieldAlert,
+  Globe,
+  Clock,
+} from "lucide-react";
 
 const navItems = [
   { href: "/dashboard",  label: "Overview",    icon: LayoutDashboard, code: "01" },
-  { href: "/scans",      label: "Scans",       icon: Scan,             code: "02" },
-  { href: "/compare",    label: "Compare",     icon: GitCompareArrows, code: "03" },
-  { href: "/settings",   label: "Settings",    icon: Settings,         code: "04" },
+  { href: "/scans",      label: "Scans",       icon: Scan,            code: "02" },
+  { href: "/compare",    label: "Compare",     icon: GitCompareArrows,code: "03" },
+  { href: "/vuln-db",    label: "Vuln DB",     icon: ShieldAlert,     code: "04" },
+  { href: "/assets",     label: "Assets",      icon: Globe,           code: "05" },
+  { href: "/schedules",  label: "Schedules",   icon: Clock,           code: "06" },
+  { href: "/settings",   label: "Settings",    icon: Settings,        code: "07" },
 ];
 
 export function Sidebar() {
@@ -48,7 +60,7 @@ export function Sidebar() {
             className="text-[9px] tracking-widest uppercase"
             style={{ fontFamily: "JetBrains Mono, monospace", color: "#4a4440" }}
           >
-            v0.1.0
+            v0.2.0
           </div>
         </div>
       </div>
@@ -64,7 +76,7 @@ export function Sidebar() {
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 space-y-0.5 px-3">
+      <nav className="flex-1 space-y-0.5 px-3 overflow-y-auto">
         {navItems.map((item) => {
           const isActive =
             item.href === "/dashboard"

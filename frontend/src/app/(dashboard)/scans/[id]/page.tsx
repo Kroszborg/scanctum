@@ -1,20 +1,38 @@
 "use client";
 
-import { use } from "react";
+import { use, useCallback } from "react";
 import Link from "next/link";
 import { useScan } from "@/hooks/use-scans";
 import { usePolling } from "@/hooks/use-polling";
+import { useScanWebSocket } from "@/hooks/use-scan-ws";
 import { ScanProgress } from "@/components/scan/scan-progress";
 import { ResultsTable } from "@/components/scan/results-table";
 import { DownloadButton } from "@/components/report/download-button";
-import { ArrowLeft, FileText, Download } from "lucide-react";
+import { ArrowLeft, FileText, Wifi, WifiOff } from "lucide-react";
 
 export default function ScanDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { scan, results, loading, refetch } = useScan(id);
 
   const isRunning = scan ? ["pending", "crawling", "scanning"].includes(scan.status) : false;
-  usePolling(refetch, 3000, isRunning);
+
+  // WebSocket real-time progress — updates from Redis pub/sub via FastAPI WS endpoint
+  const { connected: wsConnected, fallbackMode } = useScanWebSocket(
+    isRunning ? id : null,
+    {
+      onProgress: useCallback(() => {
+        // Re-fetch full scan state from REST API to sync DB-persisted data
+        refetch();
+      }, [refetch]),
+      onDone: useCallback(() => {
+        // Fetch final state + results when scan completes
+        refetch();
+      }, [refetch]),
+    },
+  );
+
+  // Polling fallback: activate when WS is unavailable or scan is running without WS
+  usePolling(refetch, 3000, isRunning && fallbackMode);
 
   if (loading || !scan) {
     return (
@@ -81,6 +99,22 @@ export default function ScanDetailPage({ params }: { params: Promise<{ id: strin
                 minute: "2-digit",
               })}
             </span>
+            {/* Live indicator */}
+            {isRunning && (
+              <>
+                <span style={{ color: "#1e1c18" }}>|</span>
+                <span className="flex items-center gap-1" title={wsConnected ? "Live WebSocket" : fallbackMode ? "Polling fallback" : "Connecting..."}>
+                  {wsConnected ? (
+                    <Wifi className="h-2.5 w-2.5" style={{ color: "#4ade80" }} />
+                  ) : (
+                    <WifiOff className="h-2.5 w-2.5" style={{ color: "#4a4440" }} />
+                  )}
+                  <span style={{ color: wsConnected ? "#4ade80" : "#4a4440" }}>
+                    {wsConnected ? "live" : fallbackMode ? "polling" : "connecting"}
+                  </span>
+                </span>
+              </>
+            )}
           </div>
         </div>
 

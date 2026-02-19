@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -15,6 +16,19 @@ from app.scanner.rate_limiter import CircuitBreaker, PerDomainThrottle
 from app.scanner.scope import ScopeValidator
 
 logger = logging.getLogger(__name__)
+
+
+def _publish_progress(scan_id: str, payload: dict) -> None:
+    """Publish scan progress update to Redis pub/sub channel.
+    Called synchronously from within the Celery worker context.
+    """
+    try:
+        import redis as redis_sync
+        r = redis_sync.from_url(settings.REDIS_URL, socket_connect_timeout=2)
+        r.publish(f"scan:{scan_id}:progress", json.dumps(payload))
+        r.close()
+    except Exception as e:
+        logger.debug(f"Redis publish failed (non-fatal): {e}")
 
 
 class ScanOrchestrator:
@@ -106,6 +120,15 @@ class ScanOrchestrator:
             self.scan.error_message = str(e)
             self.scan.completed_at = datetime.now(timezone.utc)
             self.db.commit()
+            _publish_progress(str(self.scan_id), {
+                "type": "progress",
+                "scan_id": str(self.scan_id),
+                "status": "failed",
+                "progress": 0,
+                "pages_found": self.scan.pages_found,
+                "pages_scanned": self.scan.pages_scanned,
+                "error": str(e),
+            })
 
     async def _scan_page(
         self, page: CrawledPage, modules: list, http_client: HttpClient
@@ -173,6 +196,16 @@ class ScanOrchestrator:
         self.scan.status = status
         self.scan.progress_percent = progress
         self.db.commit()
+
+        # Publish to Redis so WebSocket subscribers get real-time updates
+        _publish_progress(str(self.scan_id), {
+            "type": "progress",
+            "scan_id": str(self.scan_id),
+            "status": status,
+            "progress": progress,
+            "pages_found": self.scan.pages_found,
+            "pages_scanned": self.scan.pages_scanned,
+        })
 
     def _is_cancelled(self) -> bool:
         self.db.refresh(self.scan)
