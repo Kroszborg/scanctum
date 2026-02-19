@@ -10,6 +10,9 @@ from app.core.security import decode_access_token
 from app.db.session import get_async_session
 from app.models.user import User
 
+# Alias for routers that expect get_db (async session dependency).
+get_db = get_async_session
+
 
 async def get_current_user(
     authorization: Annotated[str | None, Header()] = None,

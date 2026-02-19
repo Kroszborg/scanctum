@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from collections import deque
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlparse, urlunparse, parse_qs, urlencode
@@ -10,6 +11,20 @@ from app.scanner.http_client import HttpClient
 from app.scanner.scope import ScopeValidator
 
 logger = logging.getLogger(__name__)
+
+# Common paths to seed crawl when page has few/no links (same origin only)
+COMMON_SEED_PATHS_QUICK = [
+    "/", "/login", "/signin", "/register", "/signup", "/admin", "/dashboard",
+    "/home", "/index.html", "/about", "/contact", "/user", "/profile",
+]
+COMMON_SEED_PATHS_FULL = [
+    "/", "/login", "/signin", "/register", "/signup", "/admin", "/dashboard",
+    "/home", "/index.html", "/about", "/contact", "/user", "/profile",
+    "/api", "/api/v1", "/graphql", "/swagger", "/api-docs", "/docs",
+    "/logout", "/forgot-password", "/reset-password", "/settings", "/account",
+    "/.well-known/security.txt", "/robots.txt", "/sitemap.xml",
+    "/manager", "/administrator", "/backend", "/portal", "/app",
+]
 
 
 @dataclass
@@ -30,7 +45,7 @@ class CrawledPage:
 
 
 class AsyncCrawler:
-    """BFS web crawler with dedup, depth control, and form extraction."""
+    """BFS web crawler with dedup, depth control, form extraction, and optional seed paths."""
 
     def __init__(
         self,
@@ -39,6 +54,7 @@ class AsyncCrawler:
         max_depth: int = 2,
         max_pages: int = 20,
         concurrency: int = 5,
+        extra_seed_urls: list[str] | None = None,
     ):
         self.http = http_client
         self.scope = scope
@@ -47,10 +63,17 @@ class AsyncCrawler:
         self.semaphore = asyncio.Semaphore(concurrency)
         self.visited: set[str] = set()
         self.pages: list[CrawledPage] = []
+        self.extra_seed_urls = extra_seed_urls or []
 
     async def crawl(self, start_url: str) -> list[CrawledPage]:
         queue: deque[tuple[str, int]] = deque()
+        base = urljoin(start_url, "/")
         queue.append((self._normalize(start_url), 0))
+        for seed in self.extra_seed_urls:
+            u = urljoin(base, seed)
+            norm = self._normalize(u)
+            if norm not in self.visited and self.scope.is_in_scope(u):
+                queue.append((norm, 0))
 
         while queue and len(self.pages) < self.max_pages:
             batch: list[tuple[str, int]] = []
@@ -120,17 +143,38 @@ class AsyncCrawler:
 
     def _extract_links(self, base_url: str, html: str) -> list[str]:
         soup = BeautifulSoup(html, "lxml")
+        seen: set[str] = set()
         links: list[str] = []
+
+        def add(href: str) -> None:
+            if not href or href.strip().startswith(("#", "javascript:", "mailto:", "tel:", "data:")):
+                return
+            absolute = urljoin(base_url, href.strip())
+            if absolute not in seen and self.scope.is_in_scope(absolute):
+                seen.add(absolute)
+                links.append(absolute)
+
         for tag in soup.find_all(["a", "link"], href=True):
-            href = tag["href"]
-            absolute = urljoin(base_url, href)
-            if self.scope.is_in_scope(absolute):
-                links.append(absolute)
-        for tag in soup.find_all(["script", "img", "iframe"], src=True):
-            src = tag["src"]
-            absolute = urljoin(base_url, src)
-            if self.scope.is_in_scope(absolute):
-                links.append(absolute)
+            add(tag["href"])
+        for tag in soup.find_all(["script", "img", "iframe", "source", "video", "audio"], src=True):
+            add(tag["src"])
+        for tag in soup.find_all("area", href=True):
+            add(tag["href"])
+        for tag in soup.find_all(attrs={"data-href": True}):
+            add(tag["data-href"])
+        for tag in soup.find_all(attrs={"data-src": True}):
+            add(tag["data-src"])
+        for tag in soup.find_all(srcset=True):
+            for part in tag["srcset"].split(","):
+                part = part.strip().split()[0] if part.strip() else ""
+                add(part)
+        for tag in soup.find_all("meta", attrs={"http-equiv": re.compile(r"refresh", re.I)}):
+            content = tag.get("content", "")
+            m = re.search(r"url\s*=\s*(.+)", content, re.I)
+            if m:
+                add(m.group(1).strip())
+        for form in soup.find_all("form", action=True):
+            add(form["action"])
         return links
 
     def _extract_forms(self, base_url: str, html: str) -> list[FormData]:

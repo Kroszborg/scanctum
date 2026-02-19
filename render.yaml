@@ -1,51 +1,55 @@
 # ════════════════════════════════════════════════════════════════════════════
 #  Scanctum — Render Blueprint
-#  One-click deploy: https://dashboard.render.com/select-repo
+#  Deploy: Dashboard → New → Blueprint → select repo → Deploy Blueprint
 #  Docs: https://render.com/docs/blueprint-spec
 # ════════════════════════════════════════════════════════════════════════════
 
 databases:
-  # ── Managed PostgreSQL 16 ─────────────────────────────────────────────────
   - name: scanctum-db
     databaseName: scanctum
     user: scanctum
-    plan: free           # upgrade to starter/standard for production
-    region: oregon       # match region of your web services
+    plan: free
+    region: oregon
     postgresMajorVersion: "16"
 
 services:
-  # ── FastAPI Backend ────────────────────────────────────────────────────────
+  # Redis must be defined before backend/celery so they can reference it
+  - type: redis
+    name: scanctum-redis
+    region: oregon
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []   # internal only
+
   - type: web
     name: scanctum-backend
     region: oregon
-    plan: free           # upgrade to starter ($7/mo) for persistent instances
-    env: docker
+    plan: free
+    runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    # Run Alembic migrations then start Uvicorn
+    # Render gives postgresql://; we need +asyncpg and +psycopg2 (no transform in Blueprint)
     dockerCommand: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2"
+      sh -c 'export DATABASE_URL=$$(echo "$$DATABASE_URL" | sed "s|^postgresql://|postgresql+asyncpg://|");
+      export DATABASE_URL_SYNC=$$(echo "$$DATABASE_URL_SYNC" | sed "s|^postgresql://|postgresql+psycopg2://|");
+      alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $$PORT --workers 2'
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
         fromDatabase:
           name: scanctum-db
           property: connectionString
-        # Render provides postgresql:// — rewrite to asyncpg driver:
-        transform: "value.replace('postgresql://', 'postgresql+asyncpg://')"
       - key: DATABASE_URL_SYNC
         fromDatabase:
           name: scanctum-db
           property: connectionString
-        # Rewrite to psycopg2 driver for Celery/Alembic:
-        transform: "value.replace('postgresql://', 'postgresql+psycopg2://')"
       - key: REDIS_URL
         fromService:
           name: scanctum-redis
           type: redis
           property: connectionString
       - key: JWT_SECRET_KEY
-        generateValue: true   # Render auto-generates a random secret
+        generateValue: true
       - key: JWT_ALGORITHM
         value: HS256
       - key: JWT_EXPIRE_MINUTES
@@ -55,38 +59,37 @@ services:
       - key: API_V1_PREFIX
         value: /api/v1
       - key: SCANNER_MAX_DEPTH_QUICK
-        value: "2"
+        value: "3"
       - key: SCANNER_MAX_PAGES_QUICK
-        value: "20"
+        value: "40"
       - key: SCANNER_MAX_DEPTH_FULL
-        value: "5"
+        value: "6"
       - key: SCANNER_MAX_PAGES_FULL
-        value: "100"
+        value: "250"
       - key: SCANNER_REQUEST_DELAY
         value: "2.0"
       - key: SCANNER_CONCURRENCY
-        value: "3"
+        value: "5"
 
-  # ── Celery Worker ─────────────────────────────────────────────────────────
   - type: worker
     name: scanctum-celery
     region: oregon
     plan: free
-    env: docker
+    runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    dockerCommand: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2 --prefetch-multiplier=1
+    dockerCommand: >
+      sh -c 'export DATABASE_URL_SYNC=$$(echo "$$DATABASE_URL_SYNC" | sed "s|^postgresql://|postgresql+psycopg2://|");
+      celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2 --prefetch-multiplier=1'
     envVars:
       - key: DATABASE_URL
         fromDatabase:
           name: scanctum-db
           property: connectionString
-        transform: "value.replace('postgresql://', 'postgresql+asyncpg://')"
       - key: DATABASE_URL_SYNC
         fromDatabase:
           name: scanctum-db
           property: connectionString
-        transform: "value.replace('postgresql://', 'postgresql+psycopg2://')"
       - key: REDIS_URL
         fromService:
           name: scanctum-redis
@@ -100,22 +103,13 @@ services:
       - key: JWT_ALGORITHM
         value: HS256
 
-  # ── Next.js Frontend ──────────────────────────────────────────────────────
   - type: web
     name: scanctum-frontend
     region: oregon
     plan: free
-    env: docker
+    runtime: docker
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: ./frontend
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: https://scanctum-backend.onrender.com/api/v1
-
-  # ── Redis (Render managed) ─────────────────────────────────────────────────
-  - type: redis
-    name: scanctum-redis
-    region: oregon
-    plan: free           # 25MB free; upgrade to starter for persistence
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList: []      # Only allow internal Render network

@@ -8,7 +8,12 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.result import Evidence, Vulnerability
 from app.models.scan import Scan
-from app.scanner.crawler import AsyncCrawler, CrawledPage
+from app.scanner.crawler import (
+    COMMON_SEED_PATHS_FULL,
+    COMMON_SEED_PATHS_QUICK,
+    AsyncCrawler,
+    CrawledPage,
+)
 from app.scanner.http_client import HttpClient
 from app.scanner.modules.base import Finding
 from app.scanner.modules.registry import ModuleRegistry
@@ -77,12 +82,14 @@ class ScanOrchestrator:
                 include_subdomains=(self.scan.config or {}).get("include_subdomains", False),
                 exclude_patterns=(self.scan.config or {}).get("exclude_patterns"),
             )
+            seed_paths = COMMON_SEED_PATHS_FULL if is_full else COMMON_SEED_PATHS_QUICK
             crawler = AsyncCrawler(
                 http_client=http_client,
                 scope=scope,
                 max_depth=max_depth,
                 max_pages=max_pages,
                 concurrency=settings.SCANNER_CONCURRENCY,
+                extra_seed_urls=seed_paths,
             )
 
             # Phase 1: Crawl

@@ -28,7 +28,7 @@ export function Header() {
           className="text-[11px] font-medium"
           style={{ fontFamily: "JetBrains Mono, monospace", color: "#8a7f74" }}
         >
-          {user?.email ?? "—"}
+          {user?.email ?? "-"}
         </span>
         {user?.role && (
           <span
@@ -51,8 +51,8 @@ export function Header() {
           onClick={toggleTheme}
           className="flex h-8 w-8 items-center justify-center rounded transition-colors"
           style={{ color: "#4a4440" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "#e8e0d5")}
-          onMouseLeave={e => (e.currentTarget.style.color = "#4a4440")}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#e8e0d5")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "#4a4440")}
         >
           {theme === "dark" ? (
             <Sun className="h-3.5 w-3.5" />
@@ -67,11 +67,11 @@ export function Header() {
           onClick={logout}
           className="flex items-center gap-2 rounded px-3 py-1.5 text-[11px] font-medium transition-all"
           style={{ color: "#6b6259", fontFamily: "JetBrains Mono, monospace" }}
-          onMouseEnter={e => {
+          onMouseEnter={(e) => {
             e.currentTarget.style.color = "#f43f5e";
             e.currentTarget.style.background = "rgba(244,63,94,0.06)";
           }}
-          onMouseLeave={e => {
+          onMouseLeave={(e) => {
             e.currentTarget.style.color = "#6b6259";
             e.currentTarget.style.background = "transparent";
           }}

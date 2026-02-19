@@ -10,19 +10,20 @@ This guide walks you through deploying the full Scanctum stack to [Render](https
 2. [Prerequisites](#prerequisites)
 3. [Repository Setup](#repository-setup)
 4. [Deploy with Render Blueprint (Recommended)](#deploy-with-render-blueprint-recommended)
-5. [Manual Service-by-Service Setup](#manual-service-by-service-setup)
+5. [Backend on Render + Frontend on Vercel (split)](#backend-on-render--frontend-on-vercel-split)
+6. [Manual Service-by-Service Setup](#manual-service-by-service-setup)
    - [PostgreSQL Database](#1-create-postgresql-database)
    - [Redis](#2-create-redis)
    - [Backend API](#3-deploy-backend-api)
    - [Celery Worker](#4-deploy-celery-worker)
    - [Frontend](#5-deploy-frontend)
-6. [Environment Variables Reference](#environment-variables-reference)
-7. [Database Migrations](#database-migrations)
-8. [First Login and Admin Setup](#first-login-and-admin-setup)
-9. [Custom Domain and TLS](#custom-domain-and-tls)
-10. [Monitoring and Logs](#monitoring-and-logs)
-11. [Upgrading Plans](#upgrading-plans)
-12. [Troubleshooting](#troubleshooting)
+7. [Environment Variables Reference](#environment-variables-reference)
+8. [Database Migrations](#database-migrations)
+9. [First Login and Admin Setup](#first-login-and-admin-setup)
+10. [Custom Domain and TLS](#custom-domain-and-tls)
+11. [Monitoring and Logs](#monitoring-and-logs)
+12. [Upgrading Plans](#upgrading-plans)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -77,41 +78,71 @@ git push -u origin main
 
 ## Deploy with Render Blueprint (Recommended)
 
-The included `render.yaml` Blueprint provisions all services, databases, and environment variables in one click.
+The included `render.yaml` in the repo root provisions all services in one go. Render does **not** support transforming env vars (e.g. `postgresql://` → `postgresql+asyncpg://`), so the Blueprint uses a start-command workaround so the app gets the correct drivers without manual edits.
 
 ### Steps
 
-1. Go to **[dashboard.render.com/select-repo](https://dashboard.render.com/select-repo)**
-2. Connect your GitHub account if you haven't already
-3. Select your **scanctum** repository
-4. Click **"Apply Blueprint"**
-5. Render will preview all resources it will create:
+1. Open the **[Render Dashboard](https://dashboard.render.com/)** and sign in.
+2. Click **New → Blueprint** (not "New Web Service").
+3. **Connect** the Git provider (e.g. GitHub) if needed, then select your **scanctum** repository.
+4. **Blueprint path**: leave default `render.yaml` (repo root) unless you use a different path.
+5. **Branch**: choose the branch to deploy (e.g. `main`).
+6. Click **"Apply"** or **"Deploy Blueprint"**. Render will show a preview of resources:
    - `scanctum-db` — PostgreSQL 16 (free)
    - `scanctum-redis` — Redis (free)
-   - `scanctum-backend` — Web Service (free)
-   - `scanctum-celery` — Background Worker (free)
-   - `scanctum-frontend` — Web Service (free)
-6. Click **"Apply"** to start the build
+   - `scanctum-backend` — Web Service (Docker)
+   - `scanctum-celery` — Background Worker (Docker)
+   - `scanctum-frontend` — Web Service (Docker)
+7. Confirm to create everything. First deploy may take several minutes (DB + Redis + builds).
 
-### Post-Blueprint Required Edits
+### After first deploy
 
-After the Blueprint deploys, you **must** update two environment variables manually because Render's Blueprint `transform` field is informational (the actual connection strings use `postgresql://` by default):
+- **Database URLs**: The Blueprint wires `DATABASE_URL` and `DATABASE_URL_SYNC` from the Postgres instance. The **start command** in `render.yaml` rewrites `postgresql://` to `postgresql+asyncpg://` (backend) and `postgresql+psycopg2://` (Celery) before starting the app, so you do **not** need to edit these by hand.
+- **CORS**: If you use a custom domain for the frontend, set `BACKEND_CORS_ORIGINS` on **scanctum-backend** to your frontend URL (e.g. `["https://your-app.example.com"]`) and save so the backend allows that origin.
+- **Frontend API URL**: If you use a custom domain for the backend, set `NEXT_PUBLIC_API_URL` on **scanctum-frontend** to `https://your-backend.example.com/api/v1` and redeploy.
 
-**On `scanctum-backend` service → Environment:**
+---
+
+## Backend on Render + Frontend on Vercel (split)
+
+Yes — you can run the **backend** (API + Celery + Postgres + Redis) on Render and the **frontend** (Next.js) on Vercel. This is a common setup: Vercel is great for Next.js, Render for the API and workers.
+
+### 1. Backend on Render
+
+- Deploy **only** the backend stack on Render:
+  - Either use the [Render Blueprint](#deploy-with-render-blueprint-recommended) but **delete** (or do not create) the `scanctum-frontend` service after the first deploy,  
+  - Or use [Manual Service-by-Service Setup](#manual-service-by-service-setup) and create: PostgreSQL, Redis, Web Service (backend), Background Worker (Celery). Do **not** create the frontend web service.
+- Note your backend URL, e.g. `https://scanctum-backend.onrender.com`.
+
+### 2. Set CORS on the backend
+
+On the **scanctum-backend** service in Render → **Environment**:
 
 | Key | Value |
-|---|---|
-| `DATABASE_URL` | Replace `postgresql://` with `postgresql+asyncpg://` in the auto-filled value |
-| `DATABASE_URL_SYNC` | Replace `postgresql://` with `postgresql+psycopg2://` in the auto-filled value |
-| `BACKEND_CORS_ORIGINS` | Set to `["https://scanctum-frontend.onrender.com"]` (or your custom domain) |
+|-----|-------|
+| `BACKEND_CORS_ORIGINS` | Your Vercel frontend URL, e.g. `["https://your-app.vercel.app"]` or `["https://scanctum.vercel.app"]` |
 
-**On `scanctum-celery` worker → Environment:**
+Add your production and preview URLs if you use Vercel preview deployments (e.g. `["https://scanctum.vercel.app","https://*.vercel.app"]` — check FastAPI/CORS support for wildcards). Save so the backend allows requests from the frontend origin.
 
-| Key | Value |
-|---|---|
-| `DATABASE_URL_SYNC` | Replace `postgresql://` with `postgresql+psycopg2://` |
+### 3. Frontend on Vercel
 
-Then click **"Save Changes"** on each service and Render will redeploy automatically.
+1. Push your repo to GitHub and go to [vercel.com](https://vercel.com) → **Add New Project** → import the **scanctum** repo.
+2. **Root Directory**: set to `frontend` (so Vercel builds only the Next.js app).
+3. **Framework Preset**: Next.js (auto-detected).
+4. **Environment variable** (required):
+
+   | Name | Value |
+   |------|--------|
+   | `NEXT_PUBLIC_API_URL` | Your Render backend API base URL, e.g. `https://scanctum-backend.onrender.com/api/v1` |
+
+5. Deploy. The frontend will call the Render backend for API and WebSockets (use the same host for both; e.g. `wss://...` if you add WebSocket later).
+
+### Summary
+
+| Part | Where | What to set |
+|------|--------|-------------|
+| Backend (API + Celery + DB + Redis) | Render | Deploy as in Blueprint or manual; set `BACKEND_CORS_ORIGINS` to your Vercel URL(s). |
+| Frontend (Next.js) | Vercel | Root = `frontend`, set `NEXT_PUBLIC_API_URL` to `https://<your-render-backend>.onrender.com/api/v1`. |
 
 ---
 
@@ -434,19 +465,17 @@ Free plan limitations to be aware of:
 
 ## Troubleshooting
 
+### I don't see "Apply Blueprint" or the Blueprint doesn't deploy
+
+Use **New → Blueprint** (from the Render Dashboard), not "Add Web Service" or the repo connect flow that only creates a single service. Then select your repo, leave the Blueprint path as `render.yaml`, and click **Deploy Blueprint** (or **Apply**).
+
 ### Build Fails: `WeasyPrint` or `libpango` Not Found
 
 The backend Dockerfile installs `libpango-1.0-0` and related system libraries. If the build fails on this step, check that the base image is `python:3.11-slim` (Debian-based, not Alpine). Alpine requires different package names.
 
-### `DATABASE_URL asyncpg` Connection Errors
+### `DATABASE_URL` / asyncpg connection errors
 
-Render's managed PostgreSQL uses `postgresql://` URLs. You must manually replace with `postgresql+asyncpg://` for the async driver. This is the most common setup mistake.
-
-```
-Error: asyncpg: could not translate host name "..."
-```
-
-Verify `DATABASE_URL` starts with `postgresql+asyncpg://`.
+If you see `asyncpg: could not translate host name` or similar, the app is receiving a plain `postgresql://` URL. With the **updated** `render.yaml`, the backend and Celery start commands rewrite this to `postgresql+asyncpg://` and `postgresql+psycopg2://`. Ensure you're using the latest `render.yaml` from the repo and that the service's **Docker Command** (or Start Command) matches it. If you set env vars manually, use `postgresql+asyncpg://` for `DATABASE_URL` and `postgresql+psycopg2://` for `DATABASE_URL_SYNC`.
 
 ### Celery Tasks Never Execute
 

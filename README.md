@@ -110,6 +110,29 @@ This app uses **built-in auth**: JWT (python-jose), bcrypt, and a `users` table 
 
 ---
 
+## Quick scan vs full scan
+
+| | Quick scan | Full scan |
+|---|------------|-----------|
+| **Purpose** | Fast check: headers, TLS, basic XSS/redirects, cookies, JWT, robots, directory listing. | Deeper check: everything in quick **plus** injection and misconfiguration tests. |
+| **Pages** | Fewer pages (config: depth 3, up to 40 pages) + common seed paths (login, admin, etc.). | More pages (depth 6, up to 250) + more seed paths (api, graphql, swagger, etc.). |
+| **Modules** | Only modules that declare `scan_modes = ["quick", "full"]`: e.g. security_headers, https_check, tls_check, cors, xss, directory_exposure, open_redirect, jwt_analysis, robots_txt, cookie_security. | **All** modules, including those that run only in full: command_injection, sqli, ssrf, path_traversal, sensitive_files, idor, csrf, crlf_injection, xxe, ssti, graphql, api_misconfig, rate_limit_check. |
+
+So **quick** is lighter and faster; **full** runs heavier, active tests (sending payloads to forms and parameters) and is why full scan can find issues like OS command injection that quick does not run.
+
+### Example: OS command injection (full scan only)
+
+- **Why only full?** The `command_injection` module has `scan_modes = ["full"]`, so it is **not** run in quick scan.
+- **How it found the issue:**  
+  1. The crawler found the page and its forms (e.g. a form with field `EmailFor`).  
+  2. The command-injection module sent a **payload** in that field: `test; echo scntm_cmd_7x9z` (a unique canary string).  
+  3. If the server passes the value to a shell (e.g. `system("some_command " + user_input)`), the shell runs `echo scntm_cmd_7x9z` and the output is included in the HTML.  
+  4. The scanner saw the canary in the response → **confirmed** OS command injection.
+- **How this affects the website:**  
+  An attacker can send arbitrary OS commands in that parameter (e.g. `; cat /etc/passwd` or `; rm -rf /`). The server would execute them. That means full compromise of the host (read/delete files, install malware, pivot to other systems). Hence **CVSS 9.8** and **critical** — the app must never pass user input to shell commands; use safe APIs and strict input validation instead.
+
+---
+
 ## Is the project complete?
 
 Yes. You can run and use it:
