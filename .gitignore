@@ -45,3 +45,10 @@ alembic/versions/*.pyc
 # Reports output
 reports_output/
 /.claude
+
+# Local test scripts (may contain credentials)
+backend/test_*.py
+backend/check_*.py
+backend/create_tables.py
+backend/scanctum.egg-info/
+backend/.venv/

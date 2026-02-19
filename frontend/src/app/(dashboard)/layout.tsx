@@ -18,8 +18,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (isLoading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      <div
+        className="flex min-h-screen items-center justify-center gap-3"
+        style={{ background: "#0c0a08" }}
+      >
+        <div
+          className="h-1.5 w-1.5 rounded-full animate-pulse"
+          style={{ background: "#f59e0b" }}
+        />
+        <span
+          className="text-[11px] tracking-widest uppercase"
+          style={{ fontFamily: "JetBrains Mono, monospace", color: "#4a4440" }}
+        >
+          Authenticating...
+        </span>
       </div>
     );
   }

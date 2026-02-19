@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import api from "@/lib/api";
 
@@ -33,16 +32,39 @@ export function DownloadButton({ scanId, format }: { scanId: string; format: "pd
         window.URL.revokeObjectURL(url);
       }
     } catch {
-      // TODO: toast error
+      // silent
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Button variant="outline" size="sm" onClick={handleDownload} disabled={loading}>
-      <Download className="mr-2 h-4 w-4" />
-      {loading ? "Generating..." : `Download ${format.toUpperCase()}`}
-    </Button>
+    <button
+      onClick={handleDownload}
+      disabled={loading}
+      className="flex items-center gap-2 rounded px-3 py-1.5 text-[10px] tracking-widest uppercase transition-all"
+      style={{
+        fontFamily: "JetBrains Mono, monospace",
+        background: "transparent",
+        border: "1px solid #2c2820",
+        color: loading ? "#2c2820" : "#6b6259",
+        cursor: loading ? "not-allowed" : "pointer",
+      }}
+      onMouseEnter={(e) => {
+        if (!loading) {
+          e.currentTarget.style.borderColor = "rgba(245,158,11,0.3)";
+          e.currentTarget.style.color = "#f59e0b";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!loading) {
+          e.currentTarget.style.borderColor = "#2c2820";
+          e.currentTarget.style.color = "#6b6259";
+        }
+      }}
+    >
+      <Download className="h-3 w-3" />
+      {loading ? "Generating..." : format.toUpperCase()}
+    </button>
   );
 }
