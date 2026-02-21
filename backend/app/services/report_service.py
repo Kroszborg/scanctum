@@ -5,6 +5,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import NotFoundError
 from app.models.result import Vulnerability
@@ -30,6 +31,7 @@ class ReportService:
         vulns_result = await self.db.execute(
             select(Vulnerability)
             .where(Vulnerability.scan_id == scan_id)
+            .options(selectinload(Vulnerability.evidence))
             .order_by(Vulnerability.cvss_score.desc())
         )
         vulns = list(vulns_result.scalars().all())
@@ -93,16 +95,21 @@ class ReportService:
             total_vulns=len(vulns),
         )
 
+        # Try WeasyPrint first (better quality), fallback to xhtml2pdf if unavailable
         try:
-            # Lazy import to avoid loading GTK dependencies at startup (Windows compatibility)
-            from weasyprint import HTML
+            import warnings
+            # Suppress WeasyPrint import warnings about missing system libraries
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                from weasyprint import HTML
             pdf_bytes = HTML(string=html_content).write_pdf()
-        except (ImportError, OSError):
-            # Fallback for Windows/environments without GTK: use xhtml2pdf
+        except (ImportError, OSError, Exception) as e:
+            # Fallback for Windows/environments without GTK/system libs: use xhtml2pdf
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"WeasyPrint unavailable ({type(e).__name__}), using xhtml2pdf fallback")
             from xhtml2pdf import pisa
             from io import BytesIO
-            
-            # The template is now xhtml2pdf compatible (no unsupported CSS3)
             
             result = BytesIO()
             pisa_status = pisa.CreatePDF(

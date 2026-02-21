@@ -78,27 +78,28 @@ git push -u origin main
 
 ## Deploy with Render Blueprint (Recommended)
 
-The included `render.yaml` in the repo root provisions all services in one go. Render does **not** support transforming env vars (e.g. `postgresql://` → `postgresql+asyncpg://`), so the Blueprint uses a start-command workaround so the app gets the correct drivers without manual edits.
+The included `render.yaml` provisions **free-tier** services only. Render does **not** support transforming env vars (e.g. `postgresql://` → `postgresql+asyncpg://`), so the backend uses an **entrypoint script** (`entrypoint-render.sh`) that rewrites the URLs before starting the app.
+
+**Free plan note:** Background workers (Celery) are **not available** on Render's free plan. The Blueprint creates only: database, Redis, backend API, and frontend. Scans will **queue** but **will not run** until you add a Celery worker (paid plan) or run a worker elsewhere. See [Free tier: no worker](#free-tier-no-background-worker) and [Adding the Celery worker (paid plan)](#adding-the-celery-worker-paid-plan).
 
 ### Steps
 
 1. Open the **[Render Dashboard](https://dashboard.render.com/)** and sign in.
 2. Click **New → Blueprint** (not "New Web Service").
 3. **Connect** the Git provider (e.g. GitHub) if needed, then select your **scanctum** repository.
-4. **Blueprint path**: leave default `render.yaml` (repo root) unless you use a different path.
+4. **Blueprint path**: leave default `render.yaml` (repo root).
 5. **Branch**: choose the branch to deploy (e.g. `main`).
 6. Click **"Apply"** or **"Deploy Blueprint"**. Render will show a preview of resources:
    - `scanctum-db` — PostgreSQL 16 (free)
    - `scanctum-redis` — Redis (free)
    - `scanctum-backend` — Web Service (Docker)
-   - `scanctum-celery` — Background Worker (Docker)
    - `scanctum-frontend` — Web Service (Docker)
-7. Confirm to create everything. First deploy may take several minutes (DB + Redis + builds).
+7. Confirm to create everything. First deploy may take several minutes (DB + Redis + two Docker builds).
 
 ### After first deploy
 
-- **Database URLs**: The Blueprint wires `DATABASE_URL` and `DATABASE_URL_SYNC` from the Postgres instance. The **start command** in `render.yaml` rewrites `postgresql://` to `postgresql+asyncpg://` (backend) and `postgresql+psycopg2://` (Celery) before starting the app, so you do **not** need to edit these by hand.
-- **CORS**: If you use a custom domain for the frontend, set `BACKEND_CORS_ORIGINS` on **scanctum-backend** to your frontend URL (e.g. `["https://your-app.example.com"]`) and save so the backend allows that origin.
+- **Database URLs**: The backend runs `entrypoint-render.sh`, which rewrites `postgresql://` to `postgresql+asyncpg://` and `postgresql+psycopg2://` before starting Uvicorn. No manual env edits needed.
+- **CORS**: If you use a custom domain for the frontend, set `BACKEND_CORS_ORIGINS` on **scanctum-backend** to your frontend URL (e.g. `["https://your-app.example.com"]`) and save.
 - **Frontend API URL**: If you use a custom domain for the backend, set `NEXT_PUBLIC_API_URL` on **scanctum-frontend** to `https://your-backend.example.com/api/v1` and redeploy.
 
 ---
@@ -443,6 +444,43 @@ Render pings this endpoint every 30 seconds. If it fails 3 times consecutively, 
 
 ---
 
+## Free tier: no background worker
+
+On Render's **free plan**, **Background Workers are not available** ("service type is not available for this plan"). The Blueprint in this repo therefore **omits** the Celery worker so the Blueprint can be applied on a free account.
+
+- **What works on free:** API (backend), frontend, PostgreSQL, Redis. You can log in, create scans, and see the UI. Scans will stay in **pending** / queued state because no worker is running.
+- **To run scans:** Add a Celery worker on a **paid plan** (see below), run a worker **for free** elsewhere (see next section), or run the worker **locally** when you need it.
+
+### Running a Celery worker for free (Vercel? Other hosts?)
+
+**Vercel is not an option.** Vercel runs short-lived serverless functions (with strict time limits), not long-running processes. A Celery worker must run continuously (or at least be able to poll Redis and execute tasks that can take minutes). That doesn’t fit Vercel’s model.
+
+**Options that do work for free (or very cheap):**
+
+| Option | Notes |
+|--------|--------|
+| **Run the worker on your own machine** | From the repo: `cd backend && celery -A app.tasks.celery_app worker --loglevel=info`. Set `REDIS_URL` and `DATABASE_URL_SYNC` in `.env` to the **same** values as your Render backend. This only works if Redis and Postgres are reachable from the internet. Render’s **internal** DB/Redis URLs are not; use **external** connection strings from the Render dashboard if available, or use a free [Upstash Redis](https://upstash.com) and point both Render backend and your local worker at it (and a Postgres that allows external connections). |
+| **Railway** | Railway has a free tier (with monthly limits). Create a new service: deploy the **backend** Docker image, but set the start command to the Celery worker command. Use the same `REDIS_URL` and `DATABASE_URL_SYNC` as your Render backend (again, they must be publicly reachable — e.g. Upstash Redis + Render external Postgres if Render exposes it). |
+| **Fly.io** | Free allowance for small VMs. Deploy a Docker image that runs only the Celery worker; configure env vars to use the same Redis and Postgres as Render. |
+| **PythonAnywhere** | Free tier allows long-running processes. You can run a Celery worker there and point it at the same Redis (e.g. Upstash) and DB as your Render app. |
+
+**Important:** Wherever the worker runs, it must use the **exact same** `REDIS_URL` (and same Redis DB) as the Render backend, and the same `DATABASE_URL_SYNC` (with `postgresql+psycopg2://`) so tasks and DB state stay in sync. If Render only gives you internal URLs, use an external Redis (e.g. Upstash free tier) and set that `REDIS_URL` on both Render backend and the external worker; then at least the queue is shared.
+
+## Adding the Celery worker (paid plan)
+
+Once you're on a plan that supports Background Workers (e.g. Starter):
+
+1. In Render Dashboard → **New → Background Worker**.
+2. Connect the same repo, **Root Directory**: `backend`.
+3. **Build**: Docker; **Dockerfile path**: `Dockerfile`, **Docker context**: `.`
+4. **Start Command**:  
+   `sh -c 'export DATABASE_URL_SYNC=$(echo "$DATABASE_URL_SYNC" | sed "s|^postgresql://|postgresql+psycopg2://|"); celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2 --prefetch-multiplier=1'`
+5. **Environment**: Add the same vars as the backend: `DATABASE_URL`, `DATABASE_URL_SYNC` (from scanctum-db), `REDIS_URL` (from scanctum-redis), `JWT_SECRET_KEY` (copy from scanctum-backend), `JWT_ALGORITHM` = `HS256`. Use **Secret Files** or **Environment** and paste the DB/Redis URLs; ensure `DATABASE_URL_SYNC` uses `postgresql+psycopg2://`.
+
+After the worker is running, queued scans will execute.
+
+---
+
 ## Upgrading Plans
 
 Free plan limitations to be aware of:
@@ -450,20 +488,29 @@ Free plan limitations to be aware of:
 | Resource | Free Plan Limit | Impact |
 |---|---|---|
 | Web Services | Spin down after 15 min idle | First request after inactivity takes ~30s |
-| Background Workers | 750 hrs/month | Celery worker stays up continuously |
+| Background Workers | **Not available** | Scans queue but don't run; add worker on paid plan |
 | PostgreSQL | 1 GB storage, no backups | Upgrade to Starter ($7/mo) for backups |
 | Redis | 25 MB RAM | Upgrade to Starter ($10/mo) for persistence |
 
 ### Recommended Paid Upgrade Order
 
-1. **Starter PostgreSQL ($7/mo)** — adds daily backups, point-in-time recovery
-2. **Starter Web Service ($7/mo) for backend** — eliminates cold starts, adds persistent disk
-3. **Starter Redis ($10/mo)** — adds persistence so in-progress scans survive restarts
-4. **Standard PostgreSQL ($20/mo)** — for multiple users with concurrent scans
+1. **Starter (or higher) for Background Worker** — required to run scans (Celery).
+2. **Starter PostgreSQL ($7/mo)** — adds daily backups, point-in-time recovery
+3. **Starter Web Service ($7/mo) for backend** — eliminates cold starts, adds persistent disk
+4. **Starter Redis ($10/mo)** — adds persistence so in-progress scans survive restarts
 
 ---
 
 ## Troubleshooting
+
+### "Service type is not available for this plan" (Celery / background worker)
+
+Background workers are **not** available on Render's free plan. The Blueprint has been updated to **omit** the Celery worker so it applies on free tier. You will have API + frontend + DB + Redis; scans will queue but not run until you add a worker on a paid plan. See [Adding the Celery worker (paid plan)](#adding-the-celery-worker-paid-plan).
+
+### Backend or frontend "Deploy failed"
+
+- **Backend:** Ensure your repo has `backend/entrypoint-render.sh` and the backend Dockerfile copies it and runs `chmod +x entrypoint-render.sh`. The start command in the Blueprint is `./entrypoint-render.sh`. If you edited the service, set **Root Directory** to `backend`, **Dockerfile path** to `Dockerfile`, **Docker context** to `.`, **Start Command** to `./entrypoint-render.sh`.
+- **Frontend:** Set **Root Directory** to `frontend`, **Dockerfile path** to `Dockerfile`, **Docker context** to `.`. If the Docker build runs out of memory on free tier, try deploying the frontend to **Vercel** instead (see [Backend on Render + Frontend on Vercel](#backend-on-render--frontend-on-vercel-split)).
 
 ### I don't see "Apply Blueprint" or the Blueprint doesn't deploy
 
@@ -475,7 +522,7 @@ The backend Dockerfile installs `libpango-1.0-0` and related system libraries. I
 
 ### `DATABASE_URL` / asyncpg connection errors
 
-If you see `asyncpg: could not translate host name` or similar, the app is receiving a plain `postgresql://` URL. With the **updated** `render.yaml`, the backend and Celery start commands rewrite this to `postgresql+asyncpg://` and `postgresql+psycopg2://`. Ensure you're using the latest `render.yaml` from the repo and that the service's **Docker Command** (or Start Command) matches it. If you set env vars manually, use `postgresql+asyncpg://` for `DATABASE_URL` and `postgresql+psycopg2://` for `DATABASE_URL_SYNC`.
+If you see `asyncpg: could not translate host name` or similar, the app is receiving a plain `postgresql://` URL. The backend uses `entrypoint-render.sh` to rewrite it to `postgresql+asyncpg://` before starting. Ensure the backend **Start Command** is `./entrypoint-render.sh` and the script is in the repo under `backend/`. If you set env vars manually, use `postgresql+asyncpg://` for `DATABASE_URL` and `postgresql+psycopg2://` for `DATABASE_URL_SYNC`.
 
 ### Celery Tasks Never Execute
 
@@ -511,10 +558,7 @@ To debug: temporarily change the start command to `sleep 3600` to SSH in and run
 
 ### Scan Stuck on "Pending"
 
-The Celery worker did not pick up the task. Check:
-1. Celery worker service is running (check Render dashboard status)
-2. Both backend and worker share the same `REDIS_URL`
-3. Worker logs show task received — look for `[INFO/MainProcess] Received task: app.tasks.scan_tasks.run_scan`
+On the **free tier** there is **no Celery worker** — scans will always stay pending until you add a worker (paid plan) or run Celery elsewhere. If you do have a worker: (1) Celery worker service is running in the Render dashboard, (2) backend and worker share the same `REDIS_URL`, (3) worker logs show task received — look for `[INFO/MainProcess] Received task: app.tasks.scan_tasks.run_scan`.
 
 ---
 

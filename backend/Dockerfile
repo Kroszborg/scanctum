@@ -17,6 +17,7 @@ COPY pyproject.toml .
 RUN pip install --no-cache-dir -e "."
 
 COPY . .
+RUN chmod +x entrypoint-render.sh
 
 EXPOSE 8000
 

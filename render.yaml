@@ -1,7 +1,8 @@
 # ════════════════════════════════════════════════════════════════════════════
-#  Scanctum — Render Blueprint
+#  Scanctum — Render Blueprint (free tier)
 #  Deploy: Dashboard → New → Blueprint → select repo → Deploy Blueprint
-#  Docs: https://render.com/docs/blueprint-spec
+#  Note: Background workers (Celery) are NOT available on free plan. Scans will
+#  queue but not run until you add a worker on a paid plan — see DEPLOY.md.
 # ════════════════════════════════════════════════════════════════════════════
 
 databases:
@@ -13,26 +14,22 @@ databases:
     postgresMajorVersion: "16"
 
 services:
-  # Redis must be defined before backend/celery so they can reference it
   - type: redis
     name: scanctum-redis
     region: oregon
     plan: free
     maxmemoryPolicy: allkeys-lru
-    ipAllowList: []   # internal only
+    ipAllowList: []
 
   - type: web
     name: scanctum-backend
     region: oregon
     plan: free
     runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    # Render gives postgresql://; we need +asyncpg and +psycopg2 (no transform in Blueprint)
-    dockerCommand: >
-      sh -c 'export DATABASE_URL=$$(echo "$$DATABASE_URL" | sed "s|^postgresql://|postgresql+asyncpg://|");
-      export DATABASE_URL_SYNC=$$(echo "$$DATABASE_URL_SYNC" | sed "s|^postgresql://|postgresql+psycopg2://|");
-      alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $$PORT --workers 2'
+    rootDir: backend
+    dockerfilePath: Dockerfile
+    dockerContext: .
+    dockerCommand: ./entrypoint-render.sh
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
@@ -71,45 +68,16 @@ services:
       - key: SCANNER_CONCURRENCY
         value: "5"
 
-  - type: worker
-    name: scanctum-celery
-    region: oregon
-    plan: free
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    dockerCommand: >
-      sh -c 'export DATABASE_URL_SYNC=$$(echo "$$DATABASE_URL_SYNC" | sed "s|^postgresql://|postgresql+psycopg2://|");
-      celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2 --prefetch-multiplier=1'
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: scanctum-db
-          property: connectionString
-      - key: DATABASE_URL_SYNC
-        fromDatabase:
-          name: scanctum-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          name: scanctum-redis
-          type: redis
-          property: connectionString
-      - key: JWT_SECRET_KEY
-        fromService:
-          name: scanctum-backend
-          type: web
-          envVarKey: JWT_SECRET_KEY
-      - key: JWT_ALGORITHM
-        value: HS256
+  # Celery worker omitted: not available on free plan. Add manually on paid plan — see DEPLOY.md.
 
   - type: web
     name: scanctum-frontend
     region: oregon
     plan: free
     runtime: docker
-    dockerfilePath: ./frontend/Dockerfile
-    dockerContext: ./frontend
+    rootDir: frontend
+    dockerfilePath: Dockerfile
+    dockerContext: .
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: https://scanctum-backend.onrender.com/api/v1
