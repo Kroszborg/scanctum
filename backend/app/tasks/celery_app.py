@@ -1,18 +1,23 @@
 import sys
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+import logging
 
 from celery import Celery
+from kombu import Connection
+from kombu.common import maybe_declare
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
 
 def _redis_url_with_ssl_verify(url: str) -> str:
-    """Append ssl_cert_reqs=CERT_REQUIRED so Kombu validates Redis TLS (removes CERT_NONE warning)."""
+    """Ensure ssl_cert_reqs=none for Upstash Redis compatibility."""
     if not url.strip().lower().startswith("rediss://"):
         return url
     parsed = urlparse(url)
     q = parse_qs(parsed.query)
-    q["ssl_cert_reqs"] = ["CERT_REQUIRED"]
+    # Upstash requires ssl_cert_reqs=none for their proxy certificates
+    q["ssl_cert_reqs"] = ["none"]
     new_query = urlencode(q, doseq=True)
     return urlunparse(parsed._replace(query=new_query))
 
@@ -37,6 +42,11 @@ celery_app.conf.update(
     task_track_started=True,
     task_time_limit=3600,  # 1 hour hard limit
     task_soft_time_limit=2700,  # 45 min soft limit
+    # Redis connection settings for Upstash
+    broker_transport_options={"visibility_timeout": 3600, "confirm_publish": True},
+    redis_backend_health_check_interval=5,
+    broker_connection_retry_on_startup=True,
+    broker_connection_max_retries=10,
 )
 
 # Prefork pool causes PermissionError on Windows (billiard semaphores). Use solo pool.

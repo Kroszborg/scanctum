@@ -84,11 +84,15 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2 --prefetch-multiplier=1 -E
+    command: >
+      sh -c "PYTHONPATH=/app celery -A app.tasks.celery_app worker --loglevel=info --pool=solo --concurrency=2 --prefetch-multiplier=1 -E"
     restart: unless-stopped
     env_file: .env
     environment:
       - PYTHONPATH=/app
+    depends_on:
+      backend:
+        condition: service_healthy
     deploy:
       resources:
         limits:
