@@ -22,8 +22,19 @@ export default function SettingsPage() {
 
       {/* Profile */}
       <div
-        className="max-w-2xl rounded-lg overflow-hidden"
-        style={{ border: "1px solid #1e1c18" }}
+        className="max-w-2xl rounded-xl overflow-hidden transition-all duration-300"
+        style={{
+          border: "1px solid #1e1c18",
+          boxShadow: "0 0 0 0 rgba(245, 158, 11, 0)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = "0 8px 32px -12px rgba(245, 158, 11, 0.1)";
+          e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.3)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = "0 0 0 0 rgba(245, 158, 11, 0)";
+          e.currentTarget.style.borderColor = "#1e1c18";
+        }}
       >
         <div
           className="px-5 py-3"
@@ -70,8 +81,19 @@ export default function SettingsPage() {
 
       {/* Session */}
       <div
-        className="max-w-2xl rounded-lg overflow-hidden"
-        style={{ border: "1px solid #1e1c18" }}
+        className="max-w-2xl rounded-xl overflow-hidden transition-all duration-300"
+        style={{
+          border: "1px solid #1e1c18",
+          boxShadow: "0 0 0 0 rgba(245, 158, 11, 0)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = "0 8px 32px -12px rgba(245, 158, 11, 0.1)";
+          e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.3)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = "0 0 0 0 rgba(245, 158, 11, 0)";
+          e.currentTarget.style.borderColor = "#1e1c18";
+        }}
       >
         <div
           className="px-5 py-3"
@@ -93,7 +115,7 @@ export default function SettingsPage() {
           </p>
           <button
             onClick={logout}
-            className="flex items-center gap-2 rounded px-4 py-2 text-[11px] font-semibold tracking-widest uppercase transition-all"
+            className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-[11px] font-semibold tracking-widest uppercase transition-all duration-300"
             style={{
               fontFamily: "JetBrains Mono, monospace",
               background: "rgba(244,63,94,0.08)",
@@ -101,8 +123,14 @@ export default function SettingsPage() {
               color: "#f43f5e",
               cursor: "pointer",
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(244,63,94,0.14)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(244,63,94,0.08)"; }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(244,63,94,0.14)";
+              e.currentTarget.style.boxShadow = "0 0 20px rgba(244, 63, 94, 0.15)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(244,63,94,0.08)";
+              e.currentTarget.style.boxShadow = "none";
+            }}
           >
             <LogOut className="h-3.5 w-3.5" />
             Sign Out
