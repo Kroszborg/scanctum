@@ -43,7 +43,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          memory: 300m
     logging:
       driver: "json-file"
       options:
@@ -57,7 +57,7 @@ services:
       dockerfile: Dockerfile
     command: >
       sh -c "alembic upgrade head &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --loop uvloop"
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"
     restart: unless-stopped
     env_file: .env
     environment:
@@ -79,7 +79,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1g
+          memory: 700m
     logging:
       driver: "json-file"
       options:
@@ -91,7 +91,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4 --prefetch-multiplier=1 -E
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2 --prefetch-multiplier=1 -E
     restart: unless-stopped
     env_file: .env
     environment:
@@ -106,7 +106,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1g
+          memory: 700m
     logging:
       driver: "json-file"
       options:
@@ -157,7 +157,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          memory: 400m
     logging:
       driver: "json-file"
       options:

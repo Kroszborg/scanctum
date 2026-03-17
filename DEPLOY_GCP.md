@@ -59,40 +59,29 @@ All services run as Docker containers on the same VM and communicate on an inter
 
 ## 2. VM Selection
 
-### Recommended: e2-standard-2
-
-| Property | Value |
-|---|---|
-| Machine type | `e2-standard-2` |
-| vCPUs | 2 |
-| RAM | 8 GB |
-| Estimated cost | ~$49/month |
-| Boot disk | 50 GB SSD (pd-ssd) |
-| OS | Ubuntu 24.04 LTS |
-
-This handles: Next.js, FastAPI (4 workers), Celery (4 workers), PostgreSQL, Redis, Caddy — all comfortably within 8 GB.
-
-### Minimum viable: e2-medium (tight)
+### Recommended for side projects: e2-medium
 
 | Property | Value |
 |---|---|
 | Machine type | `e2-medium` |
-| vCPUs | 1 shared |
+| vCPUs | 1 (shared-core, burstable) |
 | RAM | 4 GB |
-| Estimated cost | ~$13/month |
+| Boot disk | 30 GB SSD (pd-ssd) |
+| OS | Ubuntu 24.04 LTS |
+| Estimated cost | ~$13–15/month |
 
-Possible but expect memory pressure during active scans. Reduce `--workers 4` to `--workers 2` and `--concurrency=4` to `--concurrency=2` in `docker-compose.prod.yml`.
+The `docker-compose.prod.yml` in this repo is already tuned for e2-medium: 2 Uvicorn workers, 2 Celery workers, per-container memory caps, and a 2 GB swap file (required — see section 9.5). Handles light-to-moderate scan load fine.
 
-### Scaling up: e2-standard-4
+### When to upgrade: e2-standard-2
 
 | Property | Value |
 |---|---|
-| Machine type | `e2-standard-4` |
-| vCPUs | 4 |
-| RAM | 16 GB |
-| Estimated cost | ~$98/month |
+| Machine type | `e2-standard-2` |
+| vCPUs | 2 dedicated |
+| RAM | 8 GB |
+| Estimated cost | ~$49/month |
 
-Use this if you run many concurrent scans or expect heavy traffic.
+Upgrade when you start running many concurrent scans or have multiple users. Bump workers to `--workers 4` and `--concurrency=4` in `docker-compose.prod.yml`.
 
 ### OS: Ubuntu 24.04 LTS (recommended)
 
@@ -120,7 +109,7 @@ Use this if you run many concurrent scans or expect heavy traffic.
      - OS: **Ubuntu 24.04 LTS**
      - Image type: **Ubuntu 24.04 LTS Minimal** (x86/64)
      - Boot disk type: **SSD persistent disk**
-     - Size: **50 GB**
+     - Size: **30 GB** (enough for the app + Docker images + DB data)
    - **Firewall:** Check both **Allow HTTP traffic** and **Allow HTTPS traffic**
 3. Under **Networking → Network tags:** Add tag `scanctum`
 4. Click **Create**
@@ -129,11 +118,11 @@ Use this if you run many concurrent scans or expect heavy traffic.
 
 ```bash
 gcloud compute instances create scanctum-prod \
-  --machine-type=e2-standard-2 \
+  --machine-type=e2-medium \
   --zone=us-central1-a \
   --image-family=ubuntu-2404-lts \
   --image-project=ubuntu-os-cloud \
-  --boot-disk-size=50GB \
+  --boot-disk-size=30GB \
   --boot-disk-type=pd-ssd \
   --tags=http-server,https-server,scanctum \
   --metadata=enable-oslogin=TRUE
@@ -417,29 +406,25 @@ sudo ufw status
 
 ### 9.1 Uvicorn Workers
 
-In `docker-compose.prod.yml`, backend command uses `--workers 4`. Rule of thumb: `2 × CPU_cores + 1`.
+`docker-compose.prod.yml` uses `--workers 2` which is right for e2-medium. Don't increase past 2 on 4 GB RAM — each worker forks a full Python process.
 
-- e2-medium (1 vCPU): use `--workers 2`
-- e2-standard-2 (2 vCPUs): use `--workers 4` ← current
-- e2-standard-4 (4 vCPUs): use `--workers 9`
+When you upgrade to e2-standard-2: change to `--workers 4`.
 
 ### 9.2 Celery Concurrency
 
-`--concurrency=4` means 4 parallel scan tasks. Each task crawls pages and makes HTTP requests — they're mostly I/O bound, so 4 works well on 2 vCPUs.
+`--concurrency=2` runs 2 parallel scan tasks. Scans are mostly I/O-bound (HTTP requests) so 2 is reasonable. Avoid going higher on 4 GB RAM as each scan worker holds crawl state in memory.
 
-Increase only if you have more RAM (each worker holds crawl state in memory).
+### 9.3 PostgreSQL Connection Pool
 
-### 9.3 PostgreSQL Connection Pooling
-
-FastAPI uses SQLAlchemy's async connection pool. The default pool size is 5 per Uvicorn worker. With 4 workers that's 20 connections max. Postgres default max_connections is 100, so you have room to scale.
+With 2 Uvicorn workers × 5 connections each = 10 DB connections max. Postgres defaults to 100 max_connections, so this is fine.
 
 ### 9.4 Redis Persistence
 
-The `docker-compose.prod.yml` enables AOF persistence (`--appendonly yes`) so in-flight scan task state survives Redis restarts.
+AOF persistence (`--appendonly yes`) is enabled so in-flight Celery task state survives Redis restarts.
 
-### 9.5 Swap Space (for e2-medium)
+### 9.5 Swap Space (required for e2-medium)
 
-If using e2-medium (4 GB RAM), add swap to prevent OOM kills:
+4 GB RAM is tight. Add a 2 GB swap file right after provisioning the VM — it prevents OOM kills during Docker builds and active scans:
 
 ```bash
 sudo fallocate -l 2G /swapfile
@@ -447,6 +432,9 @@ sudo chmod 600 /swapfile
 sudo mkswap /swapfile
 sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+# Reduce swappiness so swap is only used when really needed
+echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
 ```
 
 ---
