@@ -5,12 +5,13 @@ WORKDIR /app
 # System deps for WeasyPrint/Pango and PostgreSQL client
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    pkg-config \
     libpq-dev \
-    libpango-1.0-0 \
+    libpango1.0-dev \
     libpangocairo-1.0-0 \
     libgdk-pixbuf-2.0-0 \
     libffi-dev \
-    libcairo2 \
+    libcairo2-dev \
     libharfbuzz0b \
     && rm -rf /var/lib/apt/lists/*
 
