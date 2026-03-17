@@ -1,24 +1,63 @@
 {
-    # Global options
-    email admin@example.com
-}
-
-http://localhost {
-    # Frontend (Next.js)
-    reverse_proxy frontend:3000
-
-    # Backend API (FastAPI)
-    handle_path /api/v1/* {
-        rewrite * /api/v1{path}
-        reverse_proxy backend:8000
+    # Let's Encrypt notification email
+    email admin@kroszborg.co
+    # Increase timeouts for long scan WebSocket connections
+    servers {
+        timeouts {
+            read_body   30s
+            read_header 10s
+            write       0s
+            idle        10m
+        }
     }
 }
 
-# Uncomment below for production domain
-# https://your-domain.com {
-#     reverse_proxy frontend:3000
-#     handle_path /api/v1/* {
-#         rewrite * /api/v1{path}
-#         reverse_proxy backend:8000
-#     }
-# }
+scanctum.kroszborg.co {
+    # Gzip compression for text assets
+    encode gzip
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options   "nosniff"
+        X-Frame-Options          "SAMEORIGIN"
+        Referrer-Policy          "strict-origin-when-cross-origin"
+        X-XSS-Protection         "1; mode=block"
+        Permissions-Policy       "geolocation=(), microphone=(), camera=()"
+        -Server
+    }
+
+    # Backend API + WebSocket (/api/v1/* — includes /api/v1/ws/...)
+    handle /api/v1/* {
+        reverse_proxy backend:8000 {
+            header_up Host              {host}
+            header_up X-Real-IP        {remote_host}
+            header_up X-Forwarded-For  {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+
+            # Zero write timeout so WebSocket connections stay open
+            transport http {
+                response_header_timeout 0
+                dial_timeout            10s
+            }
+        }
+    }
+
+    # Frontend (Next.js standalone)
+    handle {
+        reverse_proxy frontend:3000 {
+            header_up Host              {host}
+            header_up X-Real-IP        {remote_host}
+            header_up X-Forwarded-For  {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 20mb
+            roll_keep 7
+        }
+        format json
+    }
+}

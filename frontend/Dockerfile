@@ -5,6 +5,11 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 COPY . .
+
+# Baked into the Next.js JS bundle at build time
+ARG NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 RUN npm run build
 
 # Production image, copy all the files and run next
