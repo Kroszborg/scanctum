@@ -128,8 +128,20 @@ export default function ScanDetailPage({ params }: { params: Promise<{ id: strin
 
       {/* Progress card */}
       <div
-        className="rounded-lg p-5"
-        style={{ background: "#141210", border: "1px solid #1e1c18" }}
+        className="rounded-xl p-5 transition-all duration-300"
+        style={{
+          background: "#141210",
+          border: "1px solid #1e1c18",
+          boxShadow: "0 0 0 0 rgba(245, 158, 11, 0)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = "0 8px 32px -12px rgba(245, 158, 11, 0.1)";
+          e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.3)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = "0 0 0 0 rgba(245, 158, 11, 0)";
+          e.currentTarget.style.borderColor = "#1e1c18";
+        }}
       >
         <div
           className="text-[9px] tracking-[0.2em] uppercase mb-4"
@@ -189,7 +201,7 @@ export default function ScanDetailPage({ params }: { params: Promise<{ id: strin
             {scan.status === "completed" && (
               <Link
                 href={`/scans/${id}/report`}
-                className="flex items-center gap-2 rounded px-3 py-1.5 text-[10px] tracking-widest uppercase transition-all"
+                className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-[10px] tracking-widest uppercase transition-all duration-300"
                 style={{
                   fontFamily: "JetBrains Mono, monospace",
                   background: "transparent",
@@ -199,10 +211,12 @@ export default function ScanDetailPage({ params }: { params: Promise<{ id: strin
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = "rgba(245,158,11,0.3)";
                   e.currentTarget.style.color = "#f59e0b";
+                  e.currentTarget.style.boxShadow = "0 0 15px rgba(245, 158, 11, 0.1)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.borderColor = "#2c2820";
                   e.currentTarget.style.color = "#6b6259";
+                  e.currentTarget.style.boxShadow = "none";
                 }}
               >
                 <FileText className="h-3 w-3" />
@@ -218,8 +232,20 @@ export default function ScanDetailPage({ params }: { params: Promise<{ id: strin
       {/* Clean scan */}
       {scan.status === "completed" && results.length === 0 && (
         <div
-          className="rounded-lg flex flex-col items-center justify-center py-14 gap-3"
-          style={{ background: "#141210", border: "1px solid #1e1c18" }}
+          className="rounded-xl flex flex-col items-center justify-center py-14 gap-3 transition-all duration-300"
+          style={{
+            background: "#141210",
+            border: "1px solid #1e1c18",
+            boxShadow: "0 0 0 0 rgba(74, 222, 128, 0)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = "0 8px 32px -12px rgba(74, 222, 128, 0.15)";
+            e.currentTarget.style.borderColor = "rgba(74, 222, 128, 0.3)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = "0 0 0 0 rgba(74, 222, 128, 0)";
+            e.currentTarget.style.borderColor = "#1e1c18";
+          }}
         >
           <div
             className="h-10 w-10 rounded-full flex items-center justify-center"
