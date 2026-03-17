@@ -48,8 +48,20 @@ export default function ComparePage() {
       </div>
 
       <div
-        className="max-w-2xl rounded-lg p-5 space-y-5"
-        style={{ background: "#141210", border: "1px solid #1e1c18" }}
+        className="max-w-2xl rounded-xl p-5 space-y-5 transition-all duration-300"
+        style={{
+          background: "#141210",
+          border: "1px solid #1e1c18",
+          boxShadow: "0 0 0 0 rgba(245, 158, 11, 0)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = "0 8px 32px -12px rgba(245, 158, 11, 0.1)";
+          e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.3)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = "0 0 0 0 rgba(245, 158, 11, 0)";
+          e.currentTarget.style.borderColor = "#1e1c18";
+        }}
       >
         <p
           className="text-[12px]"
@@ -134,7 +146,7 @@ export default function ComparePage() {
             <button
               onClick={handleCompare}
               disabled={!scanA || !scanB || scanA === scanB}
-              className="flex items-center gap-2 rounded px-5 py-2.5 text-[11px] font-semibold tracking-widest uppercase transition-all"
+              className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-[11px] font-semibold tracking-widest uppercase transition-all duration-300"
               style={{
                 fontFamily: "JetBrains Mono, monospace",
                 background: (!scanA || !scanB || scanA === scanB)
@@ -145,12 +157,16 @@ export default function ComparePage() {
                 cursor: (!scanA || !scanB || scanA === scanB) ? "not-allowed" : "pointer",
               }}
               onMouseEnter={(e) => {
-                if (scanA && scanB && scanA !== scanB)
+                if (scanA && scanB && scanA !== scanB) {
                   e.currentTarget.style.background = "rgba(245,158,11,0.2)";
+                  e.currentTarget.style.boxShadow = "0 0 20px rgba(245, 158, 11, 0.15)";
+                }
               }}
               onMouseLeave={(e) => {
-                if (scanA && scanB && scanA !== scanB)
+                if (scanA && scanB && scanA !== scanB) {
                   e.currentTarget.style.background = "rgba(245,158,11,0.12)";
+                  e.currentTarget.style.boxShadow = "none";
+                }
               }}
             >
               <GitCompareArrows className="h-3.5 w-3.5" />

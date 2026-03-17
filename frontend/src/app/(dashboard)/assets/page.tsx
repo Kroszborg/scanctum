@@ -72,7 +72,7 @@ export default function AssetsPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-up">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -87,16 +87,16 @@ export default function AssetsPage() {
           </h1>
         </div>
         <div
-          className="flex items-center gap-2 px-3 py-1.5 rounded"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-300"
           style={{
             fontFamily: "JetBrains Mono, monospace",
             fontSize: "10px",
             color: "#4a4440",
-            background: "#141210",
-            border: "1px solid #1e1c18",
+            background: "rgba(245, 158, 11, 0.08)",
+            border: "1px solid rgba(245, 158, 11, 0.2)",
           }}
         >
-          <Globe className="h-3 w-3" />
+          <Globe className="h-3 w-3" style={{ color: "#f59e0b" }} />
           {assets.length} targets
         </div>
       </div>
@@ -128,7 +128,21 @@ export default function AssetsPage() {
           </Link>
         </div>
       ) : (
-        <div className="rounded-lg overflow-hidden" style={{ border: "1px solid #1e1c18" }}>
+        <div
+          className="rounded-xl overflow-hidden transition-all duration-300"
+          style={{
+            border: "1px solid #1e1c18",
+            boxShadow: "0 0 0 0 rgba(245, 158, 11, 0)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = "0 8px 32px -12px rgba(245, 158, 11, 0.1)";
+            e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.3)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = "0 0 0 0 rgba(245, 158, 11, 0)";
+            e.currentTarget.style.borderColor = "#1e1c18";
+          }}
+        >
           {/* Column headers */}
           <div
             className="grid px-5 py-2.5"
@@ -159,7 +173,7 @@ export default function AssetsPage() {
               <Link
                 key={asset.target_url}
                 href={`/scans/${asset.last_scan_id}`}
-                className="grid items-center px-5 py-3.5 transition-colors"
+                className="group grid items-center px-5 py-3.5 transition-all duration-300 hover:translate-x-1"
                 style={{
                   gridTemplateColumns: "1fr 80px 80px 120px 80px",
                   gap: "12px",
@@ -244,8 +258,20 @@ export default function AssetsPage() {
       {/* Severity legend */}
       {assets.length > 0 && (
         <div
-          className="flex items-center gap-5 px-4 py-3 rounded-lg"
-          style={{ background: "#141210", border: "1px solid #1e1c18" }}
+          className="flex items-center gap-5 px-4 py-3 rounded-xl transition-all duration-300"
+          style={{
+            background: "#141210",
+            border: "1px solid #1e1c18",
+            boxShadow: "0 0 0 0 rgba(245, 158, 11, 0)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = "0 8px 32px -12px rgba(245, 158, 11, 0.1)";
+            e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.3)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = "0 0 0 0 rgba(245, 158, 11, 0)";
+            e.currentTarget.style.borderColor = "#1e1c18";
+          }}
         >
           <span className="text-[9px] tracking-widest uppercase" style={{ fontFamily: "JetBrains Mono, monospace", color: "#4a4440" }}>
             Risk Bar
