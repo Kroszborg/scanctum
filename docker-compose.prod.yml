@@ -56,14 +56,12 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     command: >
-      sh -c "alembic upgrade head &&
+      sh -c "PYTHONPATH=/app alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"
     restart: unless-stopped
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - DATABASE_URL_SYNC=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - REDIS_URL=redis://redis:6379/0
+      - PYTHONPATH=/app
       - BACKEND_CORS_ORIGINS=["https://scanctum.kroszborg.co"]
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
@@ -71,11 +69,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -95,14 +88,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - DATABASE_URL_SYNC=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - PYTHONPATH=/app
     deploy:
       resources:
         limits:
@@ -113,82 +99,7 @@ services:
         max-size: "20m"
         max-file: "5"
 
-  # ── Flower (Celery task monitor — internal only) ───────────────────────────────
-  flower:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    command: celery -A app.tasks.celery_app flower --port=5555 --basic_auth=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-changeme}
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-    ports:
-      # Bind to localhost only — do NOT expose publicly without VPN/SSH tunnel
-      - "127.0.0.1:5555:5555"
-    depends_on:
-      - celery_worker
-    deploy:
-      resources:
-        limits:
-          memory: 256m
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5m"
-        max-file: "2"
-
-  # ── PostgreSQL ────────────────────────────────────────────────────────────────
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-scanctum}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      POSTGRES_DB: ${POSTGRES_DB:-scanctum}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scanctum}"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          memory: 400m
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # ── Redis ─────────────────────────────────────────────────────────────────────
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 300m
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5m"
-        max-file: "2"
-
 volumes:
-  pgdata:
-  redisdata:
   caddy_data:
   caddy_config:
   caddy_logs:
