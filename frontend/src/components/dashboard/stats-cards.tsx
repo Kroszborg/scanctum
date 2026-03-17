@@ -15,37 +15,61 @@ interface StatCardProps {
 function StatCard({ label, value, icon: Icon, accent, accentBg, code }: StatCardProps) {
   return (
     <div
-      className="relative overflow-hidden rounded-lg p-5"
-      style={{ background: "#141210", border: "1px solid #1e1c18" }}
+      className="group relative overflow-hidden rounded-xl p-5 transition-all duration-300 hover:translate-y-[-2px]"
+      style={{
+        background: "#141210",
+        border: "1px solid #1e1c18",
+        boxShadow: "0 0 0 0 rgba(245, 158, 11, 0)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = `0 8px 32px -12px ${accent}40`;
+        e.currentTarget.style.borderColor = `${accent}30`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = "0 0 0 0 rgba(245, 158, 11, 0)";
+        e.currentTarget.style.borderColor = "#1e1c18";
+      }}
     >
       {/* Corner accent strip */}
       <div
-        className="absolute left-0 top-0 h-full w-[3px] rounded-l-lg"
+        className="absolute left-0 top-0 h-full w-[3px] rounded-l-lg transition-all duration-300"
         style={{ background: accent }}
       />
 
-      <div className="flex items-start justify-between">
+      {/* Background glow */}
+      <div
+        className="absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+        style={{ background: `radial-gradient(circle, ${accent}15 0%, transparent 70%)` }}
+      />
+
+      <div className="relative flex items-start justify-between">
         <div>
           <div
-            className="text-[9px] tracking-[0.2em] uppercase mb-3"
+            className="text-[8px] tracking-[0.25em] uppercase mb-2"
             style={{ fontFamily: "JetBrains Mono, monospace", color: "#4a4440" }}
           >
             {code} / {label}
           </div>
           <div
-            className="text-[36px] font-bold leading-none tabular-nums"
+            className="text-[40px] font-bold leading-none tabular-nums transition-colors duration-300"
             style={{ fontFamily: "JetBrains Mono, monospace", color: "#e8e0d5" }}
           >
             {value.toString().padStart(2, "0")}
           </div>
         </div>
         <div
-          className="flex h-9 w-9 items-center justify-center rounded"
+          className="flex h-10 w-10 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-110"
           style={{ background: accentBg, border: `1px solid ${accent}40` }}
         >
-          <Icon className="h-4 w-4" style={{ color: accent }} />
+          <Icon className="h-5 w-5" color={accent} />
         </div>
       </div>
+
+      {/* Bottom accent line */}
+      <div
+        className="absolute bottom-0 left-0 h-[1px] w-0 transition-all duration-500 group-hover:w-full"
+        style={{ background: accent }}
+      />
     </div>
   );
 }
@@ -87,7 +111,7 @@ export function StatsCards({ stats }: { stats: DashboardStats }) {
   ];
 
   return (
-    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {cards.map((card) => (
         <StatCard key={card.label} {...card} />
       ))}

@@ -48,7 +48,7 @@ export default function VulnDbPage() {
   const sev = (v: Vulnerability) => SEVERITY_STYLES[v.severity] ?? SEVERITY_STYLES.info;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-up">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -63,24 +63,36 @@ export default function VulnDbPage() {
           </h1>
         </div>
         <div
-          className="flex items-center gap-2 px-3 py-1.5 rounded"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-300"
           style={{
             fontFamily: "JetBrains Mono, monospace",
             fontSize: "10px",
             color: "#4a4440",
-            background: "#141210",
-            border: "1px solid #1e1c18",
+            background: "rgba(245, 158, 11, 0.08)",
+            border: "1px solid rgba(245, 158, 11, 0.2)",
           }}
         >
-          <Shield className="h-3 w-3" />
+          <Shield className="h-3 w-3" style={{ color: "#f59e0b" }} />
           {vulns.length} findings
         </div>
       </div>
 
       {/* Filters */}
       <div
-        className="flex flex-wrap gap-3 p-4 rounded-lg"
-        style={{ background: "#141210", border: "1px solid #1e1c18" }}
+        className="flex flex-wrap gap-3 p-4 rounded-xl transition-all duration-300"
+        style={{
+          background: "#141210",
+          border: "1px solid #1e1c18",
+          boxShadow: "0 0 0 0 rgba(245, 158, 11, 0)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = "0 8px 32px -12px rgba(245, 158, 11, 0.1)";
+          e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.3)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = "0 0 0 0 rgba(245, 158, 11, 0)";
+          e.currentTarget.style.borderColor = "#1e1c18";
+        }}
       >
         <div className="flex items-center gap-2">
           <Filter className="h-3 w-3" style={{ color: "#4a4440" }} />

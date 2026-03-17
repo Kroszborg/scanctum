@@ -36,15 +36,21 @@ export default function ScansPage() {
         </div>
         <Link
           href="/scans/new"
-          className="flex items-center gap-2 rounded px-4 py-2 text-[11px] font-semibold tracking-widest uppercase transition-all"
+          className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-[11px] font-semibold tracking-widest uppercase transition-all duration-300"
           style={{
             fontFamily: "JetBrains Mono, monospace",
             background: "rgba(245,158,11,0.1)",
             border: "1px solid rgba(245,158,11,0.3)",
             color: "#f59e0b",
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(245,158,11,0.18)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(245,158,11,0.1)"; }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(245,158,11,0.18)";
+            e.currentTarget.style.boxShadow = "0 0 20px rgba(245, 158, 11, 0.2)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(245,158,11,0.1)";
+            e.currentTarget.style.boxShadow = "none";
+          }}
         >
           <Plus className="h-3.5 w-3.5" />
           New Scan
@@ -53,12 +59,23 @@ export default function ScansPage() {
 
       {/* Table */}
       <div
-        className="rounded-lg overflow-hidden"
-        style={{ border: "1px solid #1e1c18" }}
+        className="rounded-xl overflow-hidden transition-all duration-300"
+        style={{
+          border: "1px solid #1e1c18",
+          boxShadow: "0 0 0 0 rgba(245, 158, 11, 0)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = "0 8px 32px -12px rgba(245, 158, 11, 0.1)";
+          e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.3)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = "0 0 0 0 rgba(245, 158, 11, 0)";
+          e.currentTarget.style.borderColor = "#1e1c18";
+        }}
       >
         {/* Column headers */}
         <div
-          className="grid grid-cols-[1fr_80px_110px_60px_90px_28px] items-center px-5 py-2.5 gap-4"
+          className="grid grid-cols-[1fr_80px_110px_60px_90px_28px] items-center px-5 py-3 gap-4"
           style={{
             background: "#141210",
             borderBottom: "1px solid #1e1c18",
@@ -115,24 +132,31 @@ export default function ScansPage() {
                 <Link
                   key={scan.id}
                   href={`/scans/${scan.id}`}
-                  className="grid grid-cols-[1fr_80px_110px_60px_90px_28px] items-center px-5 py-3.5 gap-4 group transition-colors"
+                  className="group grid grid-cols-[1fr_80px_110px_60px_90px_28px] items-center px-5 py-4 gap-4 transition-all duration-300"
                   style={{
                     borderBottom: i < scans.length - 1 ? "1px solid #1e1c18" : "none",
+                    background: "transparent",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#141210")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#141210";
+                    e.currentTarget.style.paddingLeft = "24px";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.paddingLeft = "20px";
+                  }}
                 >
                   {/* Target */}
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span
-                      className="h-1.5 w-1.5 shrink-0 rounded-full"
+                      className="h-1.5 w-1.5 shrink-0 rounded-full transition-all duration-300 group-hover:scale-125"
                       style={{
                         background: cfg.color,
                         boxShadow: `0 0 5px 1px ${cfg.glow}`,
                       }}
                     />
                     <span
-                      className="text-[12px] font-medium truncate"
+                      className="text-[12px] font-medium truncate transition-colors duration-300"
                       style={{ color: "#8a7f74" }}
                     >
                       {scan.target_url}
@@ -173,7 +197,7 @@ export default function ScansPage() {
 
                   {/* Arrow */}
                   <ArrowRight
-                    className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1"
                     style={{ color: "#f59e0b" }}
                   />
                 </Link>
