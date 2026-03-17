@@ -1,19 +1,29 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { getToken } from "@/lib/auth";
+import { HeroSection } from "@/components/landing/hero-section";
+import { FeaturesSection } from "@/components/landing/features-section";
+import { HowItWorksSection } from "@/components/landing/how-it-works-section";
+import { ScanModesSection } from "@/components/landing/scan-modes-section";
+import { LogoCarousel } from "@/components/landing/logo-carousel";
+import { FooterSection } from "@/components/landing/footer-section";
+import { BackgroundCanvas } from "@/components/landing/background-canvas";
+import { CustomCursor } from "@/components/landing/custom-cursor";
 
-export default function Home() {
-  const router = useRouter();
+export default function LandingPage() {
+  return (
+    <>
+      <CustomCursor />
+      <BackgroundCanvas />
 
-  useEffect(() => {
-    if (getToken()) {
-      router.replace("/dashboard");
-    } else {
-      router.replace("/login");
-    }
-  }, [router]);
+      <main className="relative">
+        <HeroSection />
+        <LogoCarousel />
+        <FeaturesSection />
+        <HowItWorksSection />
+        <ScanModesSection />
+      </main>
 
-  return null;
+      <FooterSection />
+    </>
+  );
 }
