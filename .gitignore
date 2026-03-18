@@ -52,3 +52,4 @@ backend/check_*.py
 backend/create_tables.py
 backend/scanctum.egg-info/
 backend/.venv/
+backend/venv*/

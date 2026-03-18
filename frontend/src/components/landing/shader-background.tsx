@@ -15,8 +15,7 @@ void main() {
 const fragmentShader = `
 uniform float uTime;
 uniform vec3 uColor1;
-uniform vec3 uColor2;
-uniform vec3 uColor3;
+uniform vec2 uResolution;
 varying vec2 vUv;
 
 // Simplex noise
@@ -50,17 +49,34 @@ float snoise(vec2 v){
 void main() {
   vec2 uv = vUv;
 
-  float noise1 = snoise(uv * 2.0 + uTime * 0.1);
-  float noise2 = snoise(uv * 4.0 - uTime * 0.15);
-  float noise3 = snoise(uv * 1.5 + uTime * 0.08);
+  // Aspect ratio correction for fullscreen
+  float aspect = uResolution.x / uResolution.y;
+  vec2 correctedUV = vec2(uv.x * aspect, uv.y);
 
-  vec3 color = mix(uColor1, uColor2, noise1 * 0.5 + 0.5);
-  color = mix(color, uColor3, noise2 * 0.3 + 0.3);
-  color += noise3 * 0.1;
+  // Multiple noise layers for more visible movement
+  float noise1 = snoise(correctedUV * 1.5 + uTime * 0.08);
+  float noise2 = snoise(correctedUV * 3.0 - uTime * 0.12);
+  float noise3 = snoise(correctedUV * 0.8 + uTime * 0.05);
 
-  // Vignette
+  // Animated color bands
+  float band = sin(uv.y * 6.0 + uTime * 0.1) * 0.1 + 0.5;
+
+  // Base gradient
+  vec3 baseColor = mix(uColor1, vec3(0.15, 0.12, 0.1), uv.y);
+
+  // Add noise layers with more intensity
+  vec3 color = baseColor;
+  color.rgb += vec3(0.08, 0.05, 0.03) * noise1;
+  color.rgb += vec3(0.05, 0.03, 0.02) * noise2;
+  color.rgb += vec3(0.03) * noise3;
+  color.rgb += 0.05 * band;
+
+  // Subtle purple/violet hints in the noise
+  color = mix(color, vec3(0.3, 0.15, 0.4), noise1 * 0.15);
+
+  // Vignette for depth
   float dist = distance(uv, vec2(0.5));
-  color *= 1.0 - dist * 0.4;
+  color *= 1.0 - dist * 0.5;
 
   gl_FragColor = vec4(color, 1.0);
 }
@@ -77,21 +93,31 @@ export function ShaderBackground() {
 
   useFrame((state) => {
     if (meshRef.current?.material) {
-      (meshRef.current.material as THREE.ShaderMaterial).uniforms.uTime.value = state.clock.elapsedTime;
+      const material = meshRef.current.material as THREE.ShaderMaterial;
+      material.uniforms.uTime.value = state.clock.elapsedTime;
+      material.uniforms.uResolution.value.set(
+        state.size.width,
+        state.size.height
+      );
+    }
+    // Keep plane sized to fill the viewport.
+    // The -PI/2 rotation around Z swaps local X/Y axes,
+    // so we pass height as X and width as Y to compensate.
+    if (meshRef.current) {
+      meshRef.current.scale.set(state.viewport.height, state.viewport.width, 1);
     }
   });
 
   return (
-    <mesh ref={meshRef} scale={[2.5, 1.8, 1]}>
-      <planeGeometry args={[1, 1, 32, 32]} />
+    <mesh ref={meshRef}>
+      <planeGeometry args={[1, 1, 64, 64]} />
       <shaderMaterial
         vertexShader={vertexShader}
         fragmentShader={fragmentShader}
         uniforms={{
           uTime: { value: 0 },
-          uColor1: { value: new THREE.Color("#0c0a08") },
-          uColor2: { value: new THREE.Color("#1a1612") },
-          uColor3: { value: new THREE.Color("#2a2418") },
+          uColor1: { value: new THREE.Color("#0a0a0a") },
+          uResolution: { value: new THREE.Vector2(1920, 1080) },
         }}
         depthWrite={false}
         depthTest={false}

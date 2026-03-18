@@ -3,25 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-  LayoutDashboard,
-  Scan,
-  GitCompareArrows,
-  Settings,
-  Shield,
-  ShieldAlert,
-  Globe,
-  Clock,
-} from "lucide-react";
-
 const navItems = [
-  { href: "/dashboard",  label: "Overview",    icon: LayoutDashboard, code: "01" },
-  { href: "/scans",      label: "Scans",       icon: Scan,            code: "02" },
-  { href: "/compare",    label: "Compare",     icon: GitCompareArrows,code: "03" },
-  { href: "/vuln-db",    label: "Vuln DB",     icon: ShieldAlert,     code: "04" },
-  { href: "/assets",     label: "Assets",      icon: Globe,           code: "05" },
-  { href: "/schedules",  label: "Schedules",   icon: Clock,           code: "06" },
-  { href: "/settings",   label: "Settings",    icon: Settings,        code: "07" },
+  { href: "/dashboard",  label: "Overview",    code: "01" },
+  { href: "/scans",      label: "Scans",       code: "02" },
+  { href: "/compare",    label: "Compare",     code: "03" },
+  { href: "/vuln-db",    label: "Vuln DB",     code: "04" },
+  { href: "/assets",     label: "Assets",      code: "05" },
+  { href: "/schedules",  label: "Schedules",   code: "06" },
+  { href: "/settings",   label: "Settings",    code: "07" },
 ];
 
 export function Sidebar() {
@@ -40,15 +29,6 @@ export function Sidebar() {
         className="flex h-[60px] items-center gap-3 px-5"
         style={{ borderBottom: "1px solid #1e1c18" }}
       >
-        <div
-          className="flex h-8 w-8 items-center justify-center rounded"
-          style={{
-            background: "rgba(245,158,11,0.12)",
-            border: "1px solid rgba(245,158,11,0.3)",
-          }}
-        >
-          <Shield className="h-4 w-4" style={{ color: "#f59e0b" }} />
-        </div>
         <div>
           <div
             className="text-[13px] font-bold tracking-[0.15em] uppercase"
@@ -116,8 +96,6 @@ export function Sidebar() {
               >
                 {item.code}
               </span>
-
-              <item.icon className="h-[15px] w-[15px] shrink-0" />
 
               <span className="text-[13px] font-medium tracking-wide">
                 {item.label}

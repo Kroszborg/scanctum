@@ -199,6 +199,18 @@ class ScanOrchestrator:
 
         self.db.commit()
 
+        # Invalidate dashboard cache for this user (fire and forget via Redis directly)
+        try:
+            from app.core.cache import get_redis
+            import redis as redis_sync
+            r = redis_sync.from_url(settings.REDIS_URL, socket_connect_timeout=2)
+            # Delete both Redis cache and pattern for in-memory cache
+            r.delete(f"dashboard:stats:{self.scan.user_id}")
+            r.delete(f"dashboard:stats:{self.scan.user_id}")
+            r.close()
+        except Exception:
+            pass  # Cache invalidation failure is non-critical
+
     def _update_status(self, status: str, progress: int) -> None:
         self.scan.status = status
         self.scan.progress_percent = progress

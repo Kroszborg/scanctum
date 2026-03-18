@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     SCANNER_MAX_PAGES_FULL: int = 100
     SCANNER_REQUEST_DELAY: float = 2.0
     SCANNER_CONCURRENCY: int = 5
+    SCANNER_TIMEOUT: int = 30  # HTTP request timeout in seconds
+    SCANNER_MAX_RETRIES: int = 2  # Max retries per request
+    SCANNER_USER_AGENT: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 
 settings = Settings()

@@ -37,20 +37,43 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
-    worker_prefetch_multiplier=1,  # Long-running tasks
-    task_acks_late=True,
+    # Worker settings for long-running scan tasks
+    worker_prefetch_multiplier=1,  # Don't prefetch - one task at a time
+    worker_concurrency=2,  # Number of concurrent tasks (matches docker-compose)
+    worker_max_tasks_per_child=1000,  # Recycle worker after 1000 tasks (memory management)
+    worker_send_task_events=True,  # Send events for Flower monitoring
+    # Task settings
+    task_acks_late=True,  # Acknowledge task after completion
     task_track_started=True,
-    task_time_limit=3600,  # 1 hour hard limit
-    task_soft_time_limit=2700,  # 45 min soft limit
-    # Redis connection settings for Upstash
-    broker_transport_options={"visibility_timeout": 3600, "confirm_publish": True},
-    redis_backend_health_check_interval=5,
+    task_time_limit=5400,  # 90 min hard limit (full scans can take time)
+    task_soft_time_limit=3600,  # 60 min soft limit
+    task_reject_on_worker_lost=True,  # Re-queue on worker crash
+    task_acks_on_failure_or_timeout=False,  # Don't ack on failure (allow retry)
+    # Retry settings
+    task_autoretry_for=(Exception,),
+    task_retry_backoff=60,  # Exponential backoff starting at 60s
+    task_retry_backoff_max=600,  # Max 10 min between retries
+    task_max_retries=3,  # Max 3 retries before giving up
+    # Redis broker settings
+    broker_transport_options={
+        "visibility_timeout": 5400,  # Match task_time_limit
+        "confirm_publish": True,
+        "socket_connect_timeout": 5,
+        "socket_keepalive": 1,
+    },
     broker_connection_retry_on_startup=True,
-    broker_connection_max_retries=10,
+    broker_connection_max_retries=5,
+    broker_connection_retry_delay=5,
+    broker_heartbeat=30,  # Keep connection alive
+    # Redis backend settings
+    redis_backend_health_check_interval=30,
+    result_extended=True,  # Store task state in Redis
+    result_expires=3600,  # Expire results after 1 hour
 )
 
 # Prefork pool causes PermissionError on Windows (billiard semaphores). Use solo pool.
 if sys.platform == "win32":
     celery_app.conf.worker_pool = "solo"
+    celery_app.conf.worker_concurrency = 1  # Solo pool only supports 1 task
 
 celery_app.autodiscover_tasks(["app.tasks"])

@@ -52,11 +52,18 @@ export function CustomCursor() {
     document.addEventListener("mousedown", onMouseDown);
     document.addEventListener("mouseup", onMouseUp);
 
-    const clickableElements = document.querySelectorAll("a, button, input, [role='button']");
-    clickableElements.forEach((el) => {
-      el.addEventListener("mouseenter", () => setIsHovering(true));
-      el.addEventListener("mouseleave", () => setIsHovering(false));
-    });
+    const updateInteractiveElements = () => {
+      const clickableElements = document.querySelectorAll("a, button, input, select, [role='button'], [tabindex]:not([tabindex='-1'])");
+      clickableElements.forEach((el) => {
+        el.removeEventListener("mouseenter", () => setIsHovering(true));
+        el.removeEventListener("mouseleave", () => setIsHovering(false));
+        el.addEventListener("mouseenter", () => setIsHovering(true));
+        el.addEventListener("mouseleave", () => setIsHovering(false));
+      });
+    };
+
+    updateInteractiveElements();
+    setTimeout(updateInteractiveElements, 100);
 
     return () => {
       document.removeEventListener("mousemove", onMouseMove);
@@ -65,7 +72,7 @@ export function CustomCursor() {
       document.removeEventListener("mousedown", onMouseDown);
       document.removeEventListener("mouseup", onMouseUp);
     };
-  }, [cursorX, cursorY, isHovering, lastMousePos]);
+  }, [cursorX, cursorY, lastMousePos]);
 
   return (
     <motion.div

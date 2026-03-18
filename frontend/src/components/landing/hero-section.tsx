@@ -8,19 +8,6 @@ export function HeroSection() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden px-6 py-24">
       <div className="max-w-6xl mx-auto text-center relative z-10">
-        {/* Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#2c2820] bg-[#141210]/80 backdrop-blur-sm mb-8">
-            <span className="w-2 h-2 rounded-full bg-[#f59e0b] animate-pulse" />
-            <span className="text-sm text-[#8a7f74] font-mono tracking-wide">
-              VULNERABILITY SCANNER V1.0
-            </span>
-          </div>
-        </motion.div>
 
         {/* Main heading */}
         <motion.h1

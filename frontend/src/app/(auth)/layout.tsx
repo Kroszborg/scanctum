@@ -1,10 +1,16 @@
+"use client";
+
+import { CustomCursor } from "@/components/landing/custom-cursor";
+import { BackgroundCanvas } from "@/components/landing/background-canvas";
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center grid-bg"
-      style={{ background: "#0c0a08" }}
-    >
-      {children}
-    </div>
+    <>
+      <CustomCursor />
+      <BackgroundCanvas />
+      <div className="flex min-h-screen items-center justify-center relative z-10">
+        {children}
+      </div>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { Activity } from "lucide-react";
 
 interface Props {
   data: { date: string; count: number }[];
@@ -10,16 +11,18 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   if (!active || !payload?.length) return null;
   return (
     <div
-      className="rounded px-3 py-2 text-[11px]"
+      className="rounded-lg px-3 py-2 text-xs"
       style={{
-        fontFamily: "JetBrains Mono, monospace",
-        background: "#1c1916",
-        border: "1px solid #2c2820",
-        color: "#e8e0d5",
+        fontFamily: "Manrope, sans-serif",
+        background: "rgba(20, 20, 20, 0.95)",
+        backdropFilter: "blur(8px)",
+        border: "1px solid rgba(255, 255, 255, 0.1)",
+        color: "#F5F5F5",
+        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.3)",
       }}
     >
-      <div style={{ color: "#4a4440" }}>{label}</div>
-      <div style={{ color: "#f59e0b" }}>{payload[0].value} scans</div>
+      <div style={{ color: "#737373", marginBottom: 4 }}>{label}</div>
+      <div style={{ color: "#a855f7", fontWeight: 600 }}>{payload[0].value} scans</div>
     </div>
   );
 }
@@ -31,96 +34,80 @@ export function ScanHistoryChart({ data }: Props) {
   }));
 
   return (
-    <div
-      className="rounded-xl p-5 transition-all duration-300"
-      style={{
-        background: "#141210",
-        border: "1px solid #1e1c18",
-        boxShadow: "0 0 0 0 rgba(245, 158, 11, 0)",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = "0 8px 32px -12px rgba(245, 158, 11, 0.15)";
-        e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.3)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = "0 0 0 0 rgba(245, 158, 11, 0)";
-        e.currentTarget.style.borderColor = "#1e1c18";
-      }}
-    >
-      <div className="mb-5 flex items-center justify-between">
-        <div>
-          <div
-            className="text-[9px] tracking-[0.2em] uppercase"
-            style={{ fontFamily: "JetBrains Mono, monospace", color: "#4a4440" }}
-          >
-            Scan Activity
+    <div className="h-full">
+      {data.length === 0 ? (
+        <div className="flex h-[200px] flex-col items-center justify-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/10 to-purple-500/10 border border-cyan-500/20">
+            <Activity className="h-6 w-6 text-neutral-600" />
           </div>
-          <div
-            className="text-[13px] font-medium mt-1"
-            style={{ color: "#8a7f74" }}
-          >
-            Scans over time
+          <p className="text-sm text-neutral-500" style={{ fontFamily: "Manrope, sans-serif" }}>
+            No scan activity yet
+          </p>
+        </div>
+      ) : (
+        <div className="h-full">
+          {/* Header */}
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <div
+                className="mb-1 text-[9px] tracking-[0.3em] uppercase text-neutral-500"
+                style={{ fontFamily: "JetBrains Mono, monospace" }}
+              >
+                Activity
+              </div>
+              <div className="text-lg font-light text-neutral-300" style={{ fontFamily: "Libre Caslon Text, serif" }}>
+                Scan Frequency
+              </div>
+            </div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/20">
+              <Activity className="h-4 w-4" style={{ color: "#06b6d4" }} />
+            </div>
           </div>
-        </div>
-        <div
-          className="flex h-8 w-8 items-center justify-center rounded-lg"
-          style={{
-            background: "rgba(245, 158, 11, 0.08)",
-            border: "1px solid rgba(245, 158, 11, 0.2)",
-          }}
-        >
-          <svg
-            className="h-4 w-4"
-            style={{ color: "#f59e0b" }}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 10V3L4 14h7v7l9-11h-7z"
-            />
-          </svg>
-        </div>
-      </div>
 
-      <div className="rounded-lg p-4" style={{ background: "#0f0d0b" }}>
-        <ResponsiveContainer width="100%" height={160}>
-          <BarChart data={formatted} barSize={20}>
-            <defs>
-              <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.6} />
-                <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.2} />
-              </linearGradient>
-            </defs>
-            <XAxis
-              dataKey="date"
-              fontSize={9}
-              tickLine={false}
-              axisLine={false}
-              tick={{ fill: "#4a4440", fontFamily: "JetBrains Mono, monospace" }}
-            />
-            <YAxis
-              fontSize={9}
-              tickLine={false}
-              axisLine={false}
-              allowDecimals={false}
-              tick={{ fill: "#4a4440", fontFamily: "JetBrains Mono, monospace" }}
-              width={20}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(245,158,11,0.08)" }} />
-            <Bar
-              dataKey="count"
-              fill="url(#barGradient)"
-              radius={[4, 4, 0, 0]}
-              stroke="#f59e0b"
-              strokeWidth={1.5}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+          {/* Chart */}
+          <div className="rounded-xl bg-neutral-900/50 p-4 border border-white/[0.02]">
+            <ResponsiveContainer width="100%" height={140}>
+              <BarChart data={formatted} barSize={12}>
+                <defs>
+                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#a855f7" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#a855f7" stopOpacity={0.3} />
+                  </linearGradient>
+                  <linearGradient id="activeBar" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.3} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="date"
+                  fontSize={9}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: "#525252", fontFamily: "JetBrains Mono, monospace", fontSize: 9 }}
+                  dy={8}
+                />
+                <YAxis
+                  fontSize={9}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                  tick={{ fill: "#525252", fontFamily: "JetBrains Mono, monospace", fontSize: 9 }}
+                  width={16}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar
+                  dataKey="count"
+                  fill="url(#barGradient)"
+                  radius={[6, 6, 0, 0]}
+                  style={{
+                    filter: "drop-shadow(0 0 8px rgba(168, 85, 247, 0.3))",
+                  }}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

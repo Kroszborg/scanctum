@@ -5,14 +5,14 @@ import { ShaderBackground } from "./shader-background";
 
 export function BackgroundCanvas() {
   return (
-    <div className="fixed inset-0 -z-10">
+    <div className="fixed inset-0 -z-10 w-screen h-screen" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 }}>
       <Canvas
-        camera={{ position: [0, 0, 1] }}
-        gl={{ antialias: false, alpha: true }}
+        camera={{ position: [0, 0, 1.5] }}
+        gl={{ antialias: false, alpha: true, preserveDrawingBuffer: true }}
+        style={{ width: "100vw", height: "100vh" }}
       >
         <ShaderBackground />
       </Canvas>
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0c0a08]/20 to-[#0c0a08]" />
     </div>
   );
 }

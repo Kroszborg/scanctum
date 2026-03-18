@@ -1,44 +1,50 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Shield, Code, Lock, Globe, FileText, AlertTriangle } from "lucide-react";
+import { Eye, Crosshair, KeyRound, Globe, FileText, BarChart3, ShieldAlert, Cpu } from "lucide-react";
 
 const features = [
   {
-    icon: Shield,
     title: "Passive Detection",
-    desc: "Analyze headers, cookies, and configurations without sending payloads",
+    desc: "Analyze headers, cookies, and configurations without sending payloads. Zero noise, zero impact.",
     color: "#f59e0b",
+    icon: Eye,
+    size: "large",
   },
   {
-    icon: Code,
     title: "Active Testing",
-    desc: "Safe payload injection to detect XSS, SQLi, and injection flaws",
+    desc: "Safe payload injection to detect XSS, SQLi, and injection flaws.",
     color: "#fb923c",
+    icon: Crosshair,
+    size: "normal",
   },
   {
-    icon: Lock,
     title: "Auth Testing",
-    desc: "JWT analysis, CSRF checks, and session security validation",
+    desc: "JWT analysis, CSRF checks, and session security validation.",
     color: "#f43f5e",
+    icon: KeyRound,
+    size: "normal",
   },
   {
-    icon: Globe,
     title: "SSRF Detection",
-    desc: "Identify server-side request forgery vulnerabilities",
+    desc: "Identify server-side request forgery vulnerabilities in real time.",
     color: "#38bdf8",
+    icon: Globe,
+    size: "normal",
   },
   {
-    icon: FileText,
     title: "PDF Reports",
-    desc: "Professional VAPT reports with CVSS scores and remediation",
+    desc: "Professional VAPT reports with CVSS scores and remediation guidance.",
     color: "#4ade80",
+    icon: FileText,
+    size: "normal",
   },
   {
-    icon: AlertTriangle,
     title: "Risk Scoring",
-    desc: "Industry-standard CVSS v3.1 severity ratings",
+    desc: "Industry-standard CVSS v3.1 severity ratings with contextual analysis.",
     color: "#a78bfa",
+    icon: BarChart3,
+    size: "large",
   },
 ];
 
@@ -65,34 +71,61 @@ export function FeaturesSection() {
           </p>
         </motion.div>
 
-        {/* Features grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feature, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="group p-8 rounded-xl border border-[#2c2820] bg-[#141210]/50 hover:bg-[#1c1916] transition-all hover:border-[#f59e0b]/30"
-            >
-              <div
-                className="w-12 h-12 rounded-lg flex items-center justify-center mb-6"
+        {/* Bento grid */}
+        <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-[200px]">
+          {features.map((feature, i) => {
+            const Icon = feature.icon;
+            return (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, scale: 0.95 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.5, delay: i * 0.08 }}
+                className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 hover:scale-[1.02] ${
+                  feature.size === "large" ? "md:col-span-2" : ""
+                }`}
                 style={{
-                  background: `${feature.color}15`,
-                  border: `1px solid ${feature.color}30`,
+                  background: `${feature.color}08`,
+                  borderColor: `${feature.color}20`,
                 }}
               >
-                <feature.icon className="w-6 h-6" style={{ color: feature.color }} />
-              </div>
-              <h3 className="text-xl font-semibold text-[#e8e0d5] mb-3">
-                {feature.title}
-              </h3>
-              <p className="text-[#8a7f74] leading-relaxed">
-                {feature.desc}
-              </p>
-            </motion.div>
-          ))}
+                {/* Hover glow */}
+                <div
+                  className="absolute -right-16 -top-16 h-48 w-48 rounded-full opacity-0 transition-opacity duration-700 group-hover:opacity-100 blur-3xl pointer-events-none"
+                  style={{ background: feature.color, opacity: 0 }}
+                  onMouseEnter={(e) => { (e.target as HTMLElement).style.opacity = "0.12"; }}
+                />
+
+                <div className="relative h-full p-6 flex flex-col justify-between">
+                  {/* Icon */}
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110"
+                    style={{
+                      background: `${feature.color}15`,
+                      border: `1px solid ${feature.color}30`,
+                    }}
+                  >
+                    <Icon
+                      className="h-5 w-5"
+                      style={{ color: feature.color }}
+                      strokeWidth={1.5}
+                    />
+                  </div>
+
+                  {/* Text */}
+                  <div>
+                    <h3 className="text-base font-semibold text-[#e8e0d5] mb-1.5 leading-snug">
+                      {feature.title}
+                    </h3>
+                    <p className="text-sm text-[#8a7f74] leading-relaxed">
+                      {feature.desc}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       </div>
     </section>

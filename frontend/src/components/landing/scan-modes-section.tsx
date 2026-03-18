@@ -105,7 +105,7 @@ export function ScanModesSection() {
               <MagneticWrapper>
                 <a
                   href={plan.cta}
-                  className={`block w-full py-4 rounded-lg text-center font-semibold transition-all ${
+                  className={`block w-full py-4 px-8 rounded-lg text-center font-semibold transition-all ${
                     plan.popular
                       ? "bg-[#f59e0b] text-[#0c0a08] hover:bg-[#d97706]"
                       : "border border-[#2c2820] text-[#e8e0d5] hover:bg-[#1c1916]"
