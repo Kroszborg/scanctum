@@ -141,6 +141,7 @@ services:
         max-file: "5"
 
 volumes:
+  pgdata:
   redis_data:
   caddy_data:
   caddy_config:
