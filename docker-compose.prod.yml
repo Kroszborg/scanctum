@@ -1,4 +1,24 @@
 services:
+  # ── PostgreSQL (local) ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: scanctum
+      POSTGRES_PASSWORD: scanctum_secret
+      POSTGRES_DB: scanctum
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 500m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # ── Redis (local, single-node) ─────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
@@ -77,9 +97,8 @@ services:
     env_file: .env
     environment:
       - PYTHONPATH=/app
-      - REDIS_URL=redis://redis:6379/0
-      - BACKEND_CORS_ORIGINS=["https://scanctum.kroszborg.co"]
     depends_on:
+      - postgres
       - redis
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
