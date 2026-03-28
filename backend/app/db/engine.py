@@ -22,4 +22,6 @@ sync_engine = create_engine(
     echo=False,
     pool_size=5,
     max_overflow=10,
+    pool_pre_ping=True,  # Verify connections before use (required for Neon serverless)
+    pool_recycle=300,    # Recycle connections every 5 min (Neon idle timeout handling)
 )
