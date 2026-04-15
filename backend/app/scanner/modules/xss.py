@@ -7,6 +7,11 @@ from app.scanner.crawler import CrawledPage
 from app.scanner.http_client import HttpClient
 from app.scanner.modules.base import BaseModule, Finding
 from app.scanner.modules.registry import ModuleRegistry
+from app.scanner.modules.validation import (
+    ConfidenceFactors,
+    create_validated_finding,
+    detect_waf,
+)
 
 # Unique canary strings for unambiguous reflection detection
 XSS_CANARY = "scntm7x5s"
@@ -44,7 +49,7 @@ JS_CONTEXT_PAYLOADS = [
     f'";{XSS_CANARY}()//',
     f"`);{XSS_CANARY}()//",
     f"</script><script>{XSS_CANARY}()</script>",
-    f"'};{XSS_CANARY}()//",
+    f"'}};{XSS_CANARY}()//",
 ]
 
 # Group 4: URL context (href/src attributes)
@@ -226,12 +231,22 @@ class XssModule(BaseModule):
         return HTML_CONTEXT_PAYLOADS + ATTR_CONTEXT_PAYLOADS[:3] + WAF_BYPASS_PAYLOADS[:4]
 
     def _make_finding(self, vuln_type, url, param, payload, test_url, body) -> Finding:
-        return Finding(
+        # Check for WAF
+        waf_detected = detect_waf(body)
+
+        # Calculate confidence factors
+        factors = ConfidenceFactors(
+            error_pattern_match=False,  # XSS doesn't use error patterns
+            multiple_payloads_success=False,  # Single payload confirmed
+            waf_detected=waf_detected,
+        )
+
+        return create_validated_finding(
             module_name=self.name,
             vuln_type=vuln_type,
-            severity="high",
-            cvss_score=6.1,
-            cvss_vector="CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+            base_severity="high",
+            base_cvss=6.1,
+            base_cvss_vector="CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
             owasp_category="A03",
             cwe_id="CWE-79",
             affected_url=url,
@@ -245,7 +260,7 @@ class XssModule(BaseModule):
                 "Implement a strict Content-Security-Policy. "
                 "Use context-aware templating (e.g., Jinja2 auto-escape, React JSX)."
             ),
-            confidence="confirmed",
+            confidence_factors=factors,
             evidence=[
                 {"type": "payload", "title": "XSS Payload", "content": payload},
                 {"type": "request", "title": "Test URL", "content": test_url},

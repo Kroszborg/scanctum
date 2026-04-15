@@ -7,6 +7,11 @@ from app.scanner.crawler import CrawledPage
 from app.scanner.http_client import HttpClient
 from app.scanner.modules.base import BaseModule, Finding
 from app.scanner.modules.registry import ModuleRegistry
+from app.scanner.modules.validation import (
+    ConfidenceFactors,
+    create_validated_finding,
+    detect_waf,
+)
 
 # ── DB-specific error signatures ─────────────────────────────────────────────
 SQL_ERRORS: list[tuple[re.Pattern, str]] = [
@@ -150,12 +155,21 @@ class SqliModule(BaseModule):
 
             for pattern, db_name in SQL_ERRORS:
                 if pattern.search(response.text):
-                    return Finding(
+                    # Check for WAF
+                    waf_detected = detect_waf(response.text)
+
+                    # Calculate confidence factors
+                    factors = ConfidenceFactors(
+                        error_pattern_match=True,
+                        waf_detected=waf_detected,
+                    )
+
+                    return create_validated_finding(
                         module_name=self.name,
                         vuln_type=f"SQL Injection - Error Based ({db_name})",
-                        severity="critical",
-                        cvss_score=9.8,
-                        cvss_vector="CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+                        base_severity="critical",
+                        base_cvss=9.8,
+                        base_cvss_vector="CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
                         owasp_category="A03",
                         cwe_id="CWE-89",
                         affected_url=page.url,
@@ -165,7 +179,7 @@ class SqliModule(BaseModule):
                             "The database error message was reflected, confirming SQL injection."
                         ),
                         remediation="Use parameterized queries or prepared statements. Never concatenate user input into SQL strings.",
-                        confidence="confirmed",
+                        confidence_factors=factors,
                         evidence=[
                             {"type": "payload", "title": "Payload", "content": payload},
                             {"type": "request", "title": "Test URL", "content": test_url},
