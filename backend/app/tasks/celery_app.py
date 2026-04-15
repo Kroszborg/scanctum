@@ -40,7 +40,7 @@ celery_app.conf.update(
     # Worker settings for long-running scan tasks
     worker_prefetch_multiplier=1,  # Don't prefetch - one task at a time
     worker_concurrency=2,  # Number of concurrent tasks (matches docker-compose)
-    worker_max_tasks_per_child=100,  # Recycle worker after 100 tasks (fresh DB connection)
+    worker_max_tasks_per_child=1000,  # Recycle worker after 1000 tasks (fresh DB connection, reduced recycling for long scans)
     worker_send_task_events=True,  # Send events for Flower monitoring
     # Task settings
     task_acks_late=True,  # Acknowledge task after completion

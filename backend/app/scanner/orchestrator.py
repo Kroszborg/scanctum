@@ -69,6 +69,8 @@ class ScanOrchestrator:
             max_depth = settings.SCANNER_MAX_DEPTH_FULL if is_full else settings.SCANNER_MAX_DEPTH_QUICK
             max_pages = settings.SCANNER_MAX_PAGES_FULL if is_full else settings.SCANNER_MAX_PAGES_QUICK
 
+            logger.info(f"Starting {'full' if is_full else 'quick'} scan: depth={max_depth}, pages={max_pages}")
+
             # Setup components
             throttle = PerDomainThrottle(delay=settings.SCANNER_REQUEST_DELAY)
             circuit_breaker = CircuitBreaker()
@@ -93,16 +95,20 @@ class ScanOrchestrator:
             )
 
             # Phase 1: Crawl
+            logger.info(f"Phase 1: Crawling with concurrency={settings.SCANNER_CONCURRENCY}")
             pages = await crawler.crawl(self.scan.target_url)
             self.scan.pages_found = len(pages)
+            logger.info(f"Crawl complete: {len(pages)} pages found")
             self._update_status("scanning", 30)
 
             # Phase 2: Run modules
             modules = ModuleRegistry.get_for_mode(self.scan.scan_mode)
+            logger.info(f"Phase 2: Running {len(modules)} modules on {len(pages)} pages")
             all_findings: list[Finding] = []
 
             for i, page in enumerate(pages):
                 if self._is_cancelled():
+                    logger.info(f"Scan cancelled at page {i+1}/{len(pages)}")
                     return
 
                 page_findings = await self._scan_page(page, modules, http_client)
@@ -112,8 +118,14 @@ class ScanOrchestrator:
                 progress = 30 + int((i + 1) / max(len(pages), 1) * 60)
                 self._update_status("scanning", min(progress, 90))
 
+                # Log progress every 10 pages to avoid excessive logging
+                if (i + 1) % 10 == 0:
+                    logger.info(f"Progress: {i+1}/{len(pages)} pages scanned, {len(all_findings)} findings so far")
+
             # Phase 3: Deduplicate and persist
+            logger.info(f"Phase 3: Deduplicating {len(all_findings)} findings")
             unique_findings = self._deduplicate(all_findings)
+            logger.info(f"After deduplication: {len(unique_findings)} unique findings")
             self._persist_findings(unique_findings)
             self._update_status("completed", 100)
             self.scan.completed_at = datetime.now(timezone.utc)
@@ -121,8 +133,12 @@ class ScanOrchestrator:
 
             await http_client.close()
 
+            logger.info(f"Scan {self.scan_id} completed successfully: {len(unique_findings)} vulnerabilities found")
+
         except Exception as e:
+            import traceback
             logger.exception(f"Scan {self.scan_id} failed: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             self.scan.status = "failed"
             self.scan.error_message = str(e)
             self.scan.completed_at = datetime.now(timezone.utc)

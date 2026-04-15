@@ -53,3 +53,5 @@ backend/create_tables.py
 backend/scanctum.egg-info/
 backend/.venv/
 backend/venv*/
+.env.production
+RESEARCH_PAPER_DRAFT.md
