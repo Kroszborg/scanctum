@@ -106,6 +106,10 @@ class ScanOrchestrator:
             logger.info(f"Phase 2: Running {len(modules)} modules on {len(pages)} pages")
             all_findings: list[Finding] = []
 
+            # Track confirmed vs tentative findings separately
+            confirmed_count = 0
+            tentative_count = 0
+
             for i, page in enumerate(pages):
                 if self._is_cancelled():
                     logger.info(f"Scan cancelled at page {i+1}/{len(pages)}")
@@ -113,6 +117,15 @@ class ScanOrchestrator:
 
                 page_findings = await self._scan_page(page, modules, http_client)
                 all_findings.extend(page_findings)
+
+                # Track confidence levels
+                for f in page_findings:
+                    if f.confidence == "confirmed":
+                        confirmed_count += 1
+                    elif f.confidence == "firm":
+                        confirmed_count += 1
+                    else:
+                        tentative_count += 1
 
                 self.scan.pages_scanned = i + 1
                 progress = 30 + int((i + 1) / max(len(pages), 1) * 60)
@@ -123,7 +136,7 @@ class ScanOrchestrator:
                     logger.info(f"Progress: {i+1}/{len(pages)} pages scanned, {len(all_findings)} findings so far")
 
             # Phase 3: Deduplicate and persist
-            logger.info(f"Phase 3: Deduplicating {len(all_findings)} findings")
+            logger.info(f"Phase 3: Deduplicating {len(all_findings)} findings (confirmed={confirmed_count}, tentative={tentative_count})")
             unique_findings = self._deduplicate(all_findings)
             logger.info(f"After deduplication: {len(unique_findings)} unique findings")
             self._persist_findings(unique_findings)
