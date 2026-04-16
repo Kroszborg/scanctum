@@ -1,6 +1,6 @@
-# Scanctum — Codebase Explanation
+# Scanctum — Complete Codebase Explanation
 
-A comprehensive guide to understanding how Scanctum works, from frontend to backend, scanning to reporting.
+A comprehensive guide to understanding how Scanctum works, from frontend to backend, scanning to validation, and reporting.
 
 ---
 
@@ -8,25 +8,14 @@ A comprehensive guide to understanding how Scanctum works, from frontend to back
 
 1. [Architecture Overview](#architecture-overview)
 2. [Backend Structure](#backend-structure)
-   - [FastAPI Application](#fastapi-application)
-   - [Database Models](#database-models)
-   - [API Endpoints](#api-endpoints)
-   - [Services Layer](#services-layer)
-   - [Scanner System](#scanner-system)
 3. [Frontend Structure](#frontend-structure)
-   - [Next.js App Router](#nextjs-app-router)
-   - [Components](#components)
-   - [State Management](#state-management)
 4. [How Scanning Works](#how-scanning-works)
-   - [Scan Lifecycle](#scan-lifecycle)
-   - [Crawler](#crawler)
-   - [Vulnerability Modules](#vulnerability-modules)
-   - [Real-time Updates](#real-time-updates)
-5. [Authentication & Authorization](#authentication--authorization)
-6. [Report Generation](#report-generation)
-7. [Deployment](#deployment)
-8. [Performance Optimizations](#performance-optimizations)
-9. [Terminology Glossary](#terminology-glossary)
+5. [Validation & Anti-False-Positive System](#validation--anti-false-positive-system) **NEW**
+6. [Authentication & Authorization](#authentication--authorization)
+7. [Report Generation](#report-generation)
+8. [Deployment](#deployment)
+9. [API Reference](#api-reference) **NEW**
+10. [Troubleshooting](#troubleshooting) **NEW**
 
 ---
 
@@ -265,6 +254,187 @@ Each module extends `BaseModule` and implements:
 
 - **Severity** (`severity.py`) — maps CVSS scores to severity labels, OWASP Top 10 categories
 - **CVSS Lite** (`cvss_lite.py`) — calculates CVSS v3.1 scores from vulnerability characteristics
+
+---
+
+## Validation & Anti-False-Positive System
+
+### Overview
+
+Scanctum v0.3.0+ includes comprehensive validation features to reduce false positives and measure detection accuracy.
+
+### Confidence Scoring
+
+**Location:** `backend/app/scanner/modules/validation.py`
+
+Every finding includes a confidence score calculated from evidence:
+
+```python
+ConfidenceFactors:
+- error_pattern_match: +0.25  # DB error, template error found
+- time_delay_match: +0.20     # Timing-based confirmation (SLEEP)
+- boolean_difference: +0.20   # True/false responses differ
+- multiple_payloads_success: +0.15  # 2+ payloads confirmed
+- data_extraction: +0.20      # Actually extracted data
+- oob_callback: +0.15         # Out-of-band confirmation
+- waf_detected: cap at 0.5    # WAF may cause false positives
+```
+
+**Confidence labels:**
+- `confirmed`: score ≥ 0.7 (trust immediately)
+- `firm`: score ≥ 0.5 (likely real)
+- `tentative`: score ≥ 0.3 (manual review needed)
+- `low`: score < 0.3 (probably false positive)
+
+### Finding Categories
+
+**Location:** `backend/app/scanner/modules/base.py`
+
+```python
+class FindingCategory(enum.Enum):
+    EXPLOITABLE = "exploitable"        # Confirmed exploitation
+    MISCONFIGURATION = "misconfiguration"  # Hardening recommended
+    INFORMATIONAL = "informational"    # Awareness only
+```
+
+**Categorization logic:**
+- **EXPLOITABLE:** SQLi, XSS, Command Injection, Path Traversal (with confirmed exploitation)
+- **MISCONFIGURATION:** Missing headers, CORS issues, CSRF (without exploit proof)
+- **INFORMATIONAL:** Server header, robots.txt, missing auxiliary headers
+
+**Usage:**
+```python
+finding = Finding(...)
+category = finding.get_category()  # Returns FindingCategory enum
+```
+
+### Anti-False-Positive Techniques
+
+#### 1. Multi-Probe Confirmation (SSTI, SQLi)
+
+**Problem:** Single payload matching could be coincidental (page contains "49" naturally).
+
+**Solution:** Require 2+ different probes to confirm:
+
+```python
+# SSTI module requires BOTH:
+"{{{{7*7}}}}" → "49" AND "{{{{5555*5555}}}}" → "30858025"
+```
+
+**Implementation:** `ssti.py` tracks `confirmed_probes` count, only reports if ≥ 2.
+
+#### 2. Baseline Comparison
+
+**Problem:** Expected result appears in original page content.
+
+**Solution:** Compare against unmodified baseline:
+
+```python
+if expected in response.text AND expected not in baseline_text:
+    # Confirmed - result only appears after injection
+```
+
+**Implementation:** All active modules fetch baseline before testing.
+
+#### 3. WAF Detection
+
+**Problem:** WAF blocking pages look like vulnerabilities.
+
+**Solution:** Detect security appliances before reporting:
+
+```python
+WAF_SIGNATURES = [
+    "blocked this request", "cloudflare", "akamai",
+    "aws shield", "security firewall", "incident ID"
+]
+
+if detect_waf(response.text):
+    factors.waf_detected = True  # Caps confidence at 0.5
+```
+
+#### 4. Context-Aware XSS
+
+**Problem:** Reflected ≠ vulnerable (might be properly encoded).
+
+**Solution:** Verify canary is unencoded:
+
+```python
+def _is_reflection_unencoded(body, payload, canary):
+    if canary not in body:
+        return False
+    if HTML_ENCODED.search(context):  # &lt; instead of <
+        return False  # Properly encoded = not vulnerable
+    return True
+```
+
+### Ground Truth Validation
+
+**Location:** `backend/app/scanner/validation.py`
+
+**Ground truth databases:**
+- **DVWA:** 8 known vulnerabilities (SQLi, XSS, CSRF, Command Injection, Path Traversal)
+- **Juice Shop:** 4 known vulnerabilities
+- **WebGoat:** 3 known vulnerabilities
+
+**Validation runner CLI:**
+
+```bash
+# Run against DVWA
+python -m app.scanner.validate --target dvwa --url http://localhost:8080
+
+# Run against all targets
+python -m app.scanner.validate --target all
+```
+
+**Metrics calculated:**
+- **True Positives (TP):** Found known vulnerabilities
+- **False Positives (FP):** Exploitable findings with no ground truth match
+- **False Negatives (FN):** Ground truth vulnerabilities not detected
+- **Precision:** TP / (TP + FP)
+- **Recall:** TP / (TP + FN)
+- **F1 Score:** 2 × (Precision × Recall) / (Precision + Recall)
+
+### OWASP ZAP Comparison
+
+**Location:** `scripts/zap_comparison.py`
+
+**Usage:**
+```bash
+pip install zap-cli
+python scripts/zap_comparison.py --target http://localhost:8080 --output report.json
+```
+
+**Output:**
+- `zap_only`: Findings only ZAP detected
+- `scanctum_only`: Findings only Scanctum detected
+- `both`: Findings both scanners detected
+- `overlap_percentage`: % of findings agreed upon
+
+### Manual Verification API
+
+**Location:** `backend/app/api/v1/verification.py`
+
+**Endpoint:** `POST /api/v1/verify`
+
+```bash
+curl -X POST http://localhost:8000/api/v1/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "http://target.com/vuln",
+    "payload": "'\'' OR '\''1'\''='\''1",
+    "vuln_type": "SQL Injection"
+  }'
+```
+
+**Response:**
+```json
+{
+  "verified": true,
+  "confidence": "confirmed",
+  "evidence": {"response_contains_error": true},
+  "explanation": "SQL error message confirms injection"
+}
+```
 
 ---
 

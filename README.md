@@ -1,6 +1,12 @@
 # Scanctum
 
-Modular web application security scanner — FastAPI backend, Next.js frontend, Celery workers, PostgreSQL, Redis.
+**Modular web application security scanner with real-time reporting and automated vulnerability validation.**
+
+- FastAPI backend with Celery workers
+- Next.js 15 frontend with dark amber theme
+- PostgreSQL + Redis for data and task queue
+- 26 detection modules (SQLi, XSS, SSTI, Command Injection, etc.)
+- **NEW:** Confidence scoring, ground truth validation, OWASP ZAP comparison
 
 ---
 
@@ -96,6 +102,123 @@ Set in `.env`:
 - `DATABASE_URL_SYNC` = same Neon URL with `+psycopg2`
 
 If you use Neon, you can omit the `postgres` service in Docker (or run backend/frontend locally and point to Neon + a Redis instance).
+
+---
+
+## New Features (v0.3.0)
+
+### 1. Confidence Scoring System
+
+All findings now include a confidence level calculated from evidence:
+
+| Confidence | Score | Meaning | Action |
+|------------|-------|---------|--------|
+| **confirmed** | ≥0.7 | Multiple exploitation methods confirmed | Trust immediately |
+| **firm** | ≥0.5 | Strong evidence (single method confirmed) | Likely real |
+| **tentative** | ≥0.3 | Heuristic match | Manual review needed |
+| **low** | <0.3 | Weak indicators | Probably false positive |
+
+**Confidence factors:**
+- Error pattern match (DB error, template error): +0.25
+- Time delay match (SQLi SLEEP): +0.20
+- Boolean difference (true/false responses differ): +0.20
+- Multiple payloads success (2+ probes work): +0.15
+- Data extraction (actually extracted data): +0.20
+- WAF detected (caps at 0.5)
+
+### 2. Finding Categories
+
+Findings are now categorized for proper prioritization:
+
+| Category | Description | Examples |
+|----------|-------------|----------|
+| **EXPLOITABLE** | Confirmed exploitation possible | SQLi, XSS, Command Injection, Path Traversal |
+| **MISCONFIGURATION** | Security hardening recommended | Missing headers, CORS issues |
+| **INFORMATIONAL** | Awareness only, not a vulnerability | Server header, robots.txt entries |
+
+**Usage:**
+```bash
+# API returns findings with category field
+GET /api/v1/scans/{id}/vulnerabilities
+
+# Filter by category
+GET /api/v1/scans/{id}/vulnerabilities?category=exploitable
+```
+
+### 3. Ground Truth Validation
+
+Validate scanner accuracy against known vulnerable applications:
+
+```bash
+# Run validation against DVWA
+cd backend
+python -m app.scanner.validate --target dvwa --url http://localhost:8080
+
+# Run against all targets (DVWA, Juice Shop, WebGoat)
+python -m app.scanner.validate --target all
+
+# Output: validation_report.txt with precision/recall/F1
+```
+
+**Metrics collected:**
+- True Positives, False Positives, False Negatives
+- Precision, Recall, F1 Score
+- Coverage percentage
+
+### 4. OWASP ZAP Comparison
+
+Compare Scanctum findings against OWASP ZAP:
+
+```bash
+# Install ZAP CLI first
+pip install zap-cli
+
+# Run comparison
+cd scripts
+python zap_comparison.py --target http://localhost:8080 --output report.json
+```
+
+**Output includes:**
+- Overlap percentage (findings both scanners found)
+- ZAP-only findings
+- Scanctum-only findings
+- Summary statistics
+
+### 5. Manual Verification API
+
+Verify findings manually via API:
+
+```bash
+# Verify a vulnerability
+curl -X POST http://localhost:8000/api/v1/verify \
+  -H "Content-Type: application/json" \
+  -d ‘{
+    "url": "http://target.com/vuln",
+    "payload": "’\’’ OR ‘\’’1’\’’=’\’’1",
+    "vuln_type": "SQL Injection",
+    "method": "GET"
+  }’
+
+# Response includes verified (bool), confidence, evidence, explanation
+```
+
+### 6. Anti-False-Positive Improvements
+
+**Multi-probe confirmation (SSTI, SQLi):**
+- Requires 2+ different payloads to confirm
+- Example: `{{{{7*7}}}}` → `49` AND `{{{{5555*5555}}}}` → `30858025`
+
+**Baseline comparison:**
+- Checks if expected result appears in original (unmodified) page
+- Prevents false positives from coincidental content
+
+**WAF detection:**
+- Detects Cloudflare, Akamai, AWS Shield, etc.
+- Caps confidence at 0.5 if WAF detected
+
+**Context-aware XSS:**
+- Verifies canary is unencoded (not `&lt;`)
+- Checks HTML/JS/attribute context
 
 ---
 
