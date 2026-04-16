@@ -10,7 +10,8 @@ const navItems = [
   { href: "/vuln-db",    label: "Vuln DB",     code: "04" },
   { href: "/assets",     label: "Assets",      code: "05" },
   { href: "/schedules",  label: "Schedules",   code: "06" },
-  { href: "/settings",   label: "Settings",    code: "07" },
+  { href: "/validation", label: "Validation",  code: "07" },
+  { href: "/settings",   label: "Settings",    code: "08" },
 ];
 
 export function Sidebar() {

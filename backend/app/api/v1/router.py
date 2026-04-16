@@ -10,6 +10,7 @@ from app.api.v1.vulnerabilities import router as vulns_router
 from app.api.v1.assets import router as assets_router
 from app.api.v1.schedules import router as schedules_router
 from app.api.v1.verification import router as verification_router
+from app.api.v1.validate import router as validate_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -22,3 +23,4 @@ api_router.include_router(vulns_router)
 api_router.include_router(assets_router)
 api_router.include_router(schedules_router)
 api_router.include_router(verification_router)
+api_router.include_router(validate_router)
